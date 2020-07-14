@@ -12,6 +12,15 @@
 #include "tools.h"
 #include <iomanip>
 
+#include "memory_space.h"
+
+#ifdef HAVE_MAGMA
+#include "magma_v2.h"
+
+template <typename ScalarType>
+using MemoryDev = MemorySpace::Memory<ScalarType, MemorySpace::Device>;
+#endif
+
 namespace pb
 {
 
@@ -397,45 +406,74 @@ void FDoper<T>::del2_4th(GridFunc<T>& A, GridFunc<T>& B) const
     const int dim1 = A.dim(1);
     const int dim2 = A.dim(2);
 
+#ifdef HAVE_OPENMP_OFFLOAD
+    const size_t ng = grid_.sizeg();
+    std::unique_ptr<T, void (*)(T*)> A_uu_dev(
+        MemoryDev<T>::allocate(ng),
+        MemoryDev<T>::free);
+    MemorySpace::copy_to_dev(A.uu(0), ng, A_uu_dev.get());
+
+    std::unique_ptr<T, void (*)(T*)> B_uu_dev(
+        MemoryDev<T>::allocate(ng),
+        MemoryDev<T>::free);
+
+    T* const A_uu_alias = A_uu_dev.get();
+    T* B_uu_alias = B_uu_dev.get();
+#else
+    T* const A_uu_alias = A.uu(0);
+    T* B_uu_alias = B.uu(0);
+#endif
+
+    int incx = incx_;
+    int incy = incy_;
+
+    //the loop is not efficient yet, need redesign
+    MGMOL_PARALLEL_FOR_COLLAPSE(2, A_uu_alias, B_uu_alias)
     for (int ix = 0; ix < dim0; ix++)
     {
-        int iiy = iix + gpt * incy_;
+        //int iiy = iix + gpt * incy;
 
         for (int iy = 0; iy < dim1; iy++)
         {
-            int iiz = iiy + gpt;
+            int iiz = (iix + ix*incx + gpt * incy + iy * incy) + gpt;
 
-            const T* __restrict__ v0   = A.uu(iiz);
-            const T* __restrict__ vmx  = A.uu(iiz - incx_);
-            const T* __restrict__ vpx  = A.uu(iiz + incx_);
-            const T* __restrict__ vmx2 = A.uu(iiz - incx2);
-            const T* __restrict__ vpx2 = A.uu(iiz + incx2);
-            const T* __restrict__ vmy  = A.uu(iiz - incy_);
-            const T* __restrict__ vpy  = A.uu(iiz + incy_);
-            const T* __restrict__ vmy2 = A.uu(iiz - incy2);
-            const T* __restrict__ vpy2 = A.uu(iiz + incy2);
+            const T* __restrict__ v0   = A_uu_alias+iiz;
+            const T* __restrict__ vmx  = A_uu_alias+(iiz - incx);
+            const T* __restrict__ vpx  = A_uu_alias+(iiz + incx);
+            const T* __restrict__ vmx2 = A_uu_alias+(iiz - incx2);
+            const T* __restrict__ vpx2 = A_uu_alias+(iiz + incx2);
+            const T* __restrict__ vmy  = A_uu_alias+(iiz - incy);
+            const T* __restrict__ vpy  = A_uu_alias+(iiz + incy);
+            const T* __restrict__ vmy2 = A_uu_alias+(iiz - incy2);
+            const T* __restrict__ vpy2 = A_uu_alias+(iiz + incy2);
 
-            T* __restrict__ u = B.uu(iiz);
+            T* __restrict__ u = B_uu_alias+iiz;
             for (int iz = 0; iz < dim2; iz++)
             {
-                u[iz] = (c0 * (double)v0[iz]
+                u[iz] = c0 * (double)v0[iz] 
 
-                         + c1x * ((double)vmx[iz] + (double)vpx[iz])
-                         + c1y * ((double)vmy[iz] + (double)vpy[iz])
-                         + c1z * ((double)v0[iz - 1] + (double)v0[iz + 1])
+                        + c1x * ((double)vmx[iz] + (double)vpx[iz])
+                        + c1y * ((double)vmy[iz] + (double)vpy[iz]) 
+                        + c1z * ((double)v0[iz - 1] + (double)v0[iz + 1]) 
 
-                         + c2x * ((double)vmx2[iz] + (double)vpx2[iz])
-                         + c2y * ((double)vmy2[iz] + (double)vpy2[iz])
-                         + c2z * ((double)v0[iz - 2] + (double)v0[iz + 2]));
-
-                iiz++;
+                        + c2x * ((double)vmx2[iz] + (double)vpx2[iz]) 
+                        + c2y * ((double)vmy2[iz] + (double)vpy2[iz]) 
+                        + c2z * ((double)v0[iz - 2] + (double)v0[iz + 2]);
+                
+                //#pragma omp atomic update
+                //iiz++;
             }
 
-            iiy += incy_;
+            iiz+=dim2;
+            //iiy += incy;
         }
 
-        iix += incx_;
+        //iix += incx;
     }
+
+#ifdef HAVE_OPENMP_OFFLOAD
+    MemorySpace::copy_to_host(B_uu_alias, ng, B.uu(0));
+#endif
 
     B.set_updated_boundaries(0);
 
