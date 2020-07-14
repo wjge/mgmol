@@ -409,25 +409,22 @@ void FDoper<T>::del2_4th(GridFunc<T>& A, GridFunc<T>& B) const
 #ifdef HAVE_OPENMP_OFFLOAD
     const size_t ng = grid_.sizeg();
     std::unique_ptr<T, void (*)(T*)> A_uu_dev(
-        MemoryDev<T>::allocate(ng),
-        MemoryDev<T>::free);
+        MemoryDev<T>::allocate(ng), MemoryDev<T>::free);
     MemorySpace::copy_to_dev(A.uu(0), ng, A_uu_dev.get());
 
     std::unique_ptr<T, void (*)(T*)> B_uu_dev(
-        MemoryDev<T>::allocate(ng),
-        MemoryDev<T>::free);
+        MemoryDev<T>::allocate(ng), MemoryDev<T>::free);
 
     T* const A_uu_alias = A_uu_dev.get();
-    T* B_uu_alias = B_uu_dev.get();
+    T* B_uu_alias       = B_uu_dev.get();
 #else
     T* const A_uu_alias = A.uu(0);
-    T* B_uu_alias = B.uu(0);
+    T* B_uu_alias       = B.uu(0);
 #endif
 
     int incx = incx_;
     int incy = incy_;
 
-    //the loop is not efficient yet, need redesign
     MGMOL_PARALLEL_FOR_COLLAPSE(3, A_uu_alias, B_uu_alias)
     for (int ix = 0; ix < dim0; ix++)
     {
@@ -435,28 +432,28 @@ void FDoper<T>::del2_4th(GridFunc<T>& A, GridFunc<T>& B) const
         {
             for (int iz = 0; iz < dim2; iz++)
             {
-                int iiz = (iix + ix*incx + gpt * incy + iy * incy) + gpt;
+                int iiz = (iix + ix * incx + gpt * incy + iy * incy) + gpt;
 
-                const T* __restrict__ v0   = A_uu_alias+iiz;
-                const T* __restrict__ vmx  = A_uu_alias+(iiz - incx);
-                const T* __restrict__ vpx  = A_uu_alias+(iiz + incx);
-                const T* __restrict__ vmx2 = A_uu_alias+(iiz - incx2);
-                const T* __restrict__ vpx2 = A_uu_alias+(iiz + incx2);
-                const T* __restrict__ vmy  = A_uu_alias+(iiz - incy);
-                const T* __restrict__ vpy  = A_uu_alias+(iiz + incy);
-                const T* __restrict__ vmy2 = A_uu_alias+(iiz - incy2);
-                const T* __restrict__ vpy2 = A_uu_alias+(iiz + incy2);
+                const T* __restrict__ v0   = A_uu_alias + iiz;
+                const T* __restrict__ vmx  = A_uu_alias + (iiz - incx);
+                const T* __restrict__ vpx  = A_uu_alias + (iiz + incx);
+                const T* __restrict__ vmx2 = A_uu_alias + (iiz - incx2);
+                const T* __restrict__ vpx2 = A_uu_alias + (iiz + incx2);
+                const T* __restrict__ vmy  = A_uu_alias + (iiz - incy);
+                const T* __restrict__ vpy  = A_uu_alias + (iiz + incy);
+                const T* __restrict__ vmy2 = A_uu_alias + (iiz - incy2);
+                const T* __restrict__ vpy2 = A_uu_alias + (iiz + incy2);
 
-                T* __restrict__ u = B_uu_alias+iiz;
-                
-                u[iz] = c0 * (double)v0[iz] 
+                T* __restrict__ u = B_uu_alias + iiz;
+
+                u[iz] = c0 * (double)v0[iz]
 
                         + c1x * ((double)vmx[iz] + (double)vpx[iz])
-                        + c1y * ((double)vmy[iz] + (double)vpy[iz]) 
-                        + c1z * ((double)v0[iz - 1] + (double)v0[iz + 1]) 
+                        + c1y * ((double)vmy[iz] + (double)vpy[iz])
+                        + c1z * ((double)v0[iz - 1] + (double)v0[iz + 1])
 
-                        + c2x * ((double)vmx2[iz] + (double)vpx2[iz]) 
-                        + c2y * ((double)vmy2[iz] + (double)vpy2[iz]) 
+                        + c2x * ((double)vmx2[iz] + (double)vpx2[iz])
+                        + c2y * ((double)vmy2[iz] + (double)vpy2[iz])
                         + c2z * ((double)v0[iz - 2] + (double)v0[iz + 2]);
             }
         }
@@ -754,7 +751,7 @@ void FDoper<T>::del2_4th_Mehr(GridFunc<T>& A, GridFunc<T>& B) const
                    c0mehr4_,czmehr4_,cymehr4_,cxmehr4_,cyzmehr4_,cxymehr4_,cxzmehr4_,
                    A.uu(0),B.uu(0));
 #else
-    const int iix0 = shift * incx_;
+    const int iix0      = shift * incx_;
 
     const T* const v = A.uu(0);
     T* u             = B.uu(0);
