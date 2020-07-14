@@ -428,28 +428,27 @@ void FDoper<T>::del2_4th(GridFunc<T>& A, GridFunc<T>& B) const
     int incy = incy_;
 
     //the loop is not efficient yet, need redesign
-    MGMOL_PARALLEL_FOR_COLLAPSE(2, A_uu_alias, B_uu_alias)
+    MGMOL_PARALLEL_FOR_COLLAPSE(3, A_uu_alias, B_uu_alias)
     for (int ix = 0; ix < dim0; ix++)
     {
-        //int iiy = iix + gpt * incy;
-
         for (int iy = 0; iy < dim1; iy++)
         {
-            int iiz = (iix + ix*incx + gpt * incy + iy * incy) + gpt;
-
-            const T* __restrict__ v0   = A_uu_alias+iiz;
-            const T* __restrict__ vmx  = A_uu_alias+(iiz - incx);
-            const T* __restrict__ vpx  = A_uu_alias+(iiz + incx);
-            const T* __restrict__ vmx2 = A_uu_alias+(iiz - incx2);
-            const T* __restrict__ vpx2 = A_uu_alias+(iiz + incx2);
-            const T* __restrict__ vmy  = A_uu_alias+(iiz - incy);
-            const T* __restrict__ vpy  = A_uu_alias+(iiz + incy);
-            const T* __restrict__ vmy2 = A_uu_alias+(iiz - incy2);
-            const T* __restrict__ vpy2 = A_uu_alias+(iiz + incy2);
-
-            T* __restrict__ u = B_uu_alias+iiz;
             for (int iz = 0; iz < dim2; iz++)
             {
+                int iiz = (iix + ix*incx + gpt * incy + iy * incy) + gpt;
+
+                const T* __restrict__ v0   = A_uu_alias+iiz;
+                const T* __restrict__ vmx  = A_uu_alias+(iiz - incx);
+                const T* __restrict__ vpx  = A_uu_alias+(iiz + incx);
+                const T* __restrict__ vmx2 = A_uu_alias+(iiz - incx2);
+                const T* __restrict__ vpx2 = A_uu_alias+(iiz + incx2);
+                const T* __restrict__ vmy  = A_uu_alias+(iiz - incy);
+                const T* __restrict__ vpy  = A_uu_alias+(iiz + incy);
+                const T* __restrict__ vmy2 = A_uu_alias+(iiz - incy2);
+                const T* __restrict__ vpy2 = A_uu_alias+(iiz + incy2);
+
+                T* __restrict__ u = B_uu_alias+iiz;
+                
                 u[iz] = c0 * (double)v0[iz] 
 
                         + c1x * ((double)vmx[iz] + (double)vpx[iz])
@@ -459,16 +458,8 @@ void FDoper<T>::del2_4th(GridFunc<T>& A, GridFunc<T>& B) const
                         + c2x * ((double)vmx2[iz] + (double)vpx2[iz]) 
                         + c2y * ((double)vmy2[iz] + (double)vpy2[iz]) 
                         + c2z * ((double)v0[iz - 2] + (double)v0[iz + 2]);
-                
-                //#pragma omp atomic update
-                //iiz++;
             }
-
-            iiz+=dim2;
-            //iiy += incy;
         }
-
-        //iix += incx;
     }
 
 #ifdef HAVE_OPENMP_OFFLOAD
