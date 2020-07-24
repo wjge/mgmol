@@ -503,21 +503,21 @@ void FDoper<T>::del2_4th(const Grid& Agrid, T* A, T* B) const
     const int dim2 = Agrid.dim(2);
 
     const size_t nfunc = 10;
-    const size_t ng = grid_.sizeg();
+    const size_t ng    = grid_.sizeg();
 
 #ifdef HAVE_OPENMP_OFFLOAD
     std::unique_ptr<T, void (*)(T*)> A_dev(
-        MemoryDev<T>::allocate(nfunc*ng), MemoryDev<T>::free);
-    MemorySpace::copy_to_dev(A, nfunc*ng, A_dev.get());
+        MemoryDev<T>::allocate(nfunc * ng), MemoryDev<T>::free);
+    MemorySpace::copy_to_dev(A, nfunc * ng, A_dev.get());
 
     std::unique_ptr<T, void (*)(T*)> B_dev(
-        MemoryDev<T>::allocate(nfunc*ng), MemoryDev<T>::free);
+        MemoryDev<T>::allocate(nfunc * ng), MemoryDev<T>::free);
 
     T* const A_alias = A_dev.get();
     T* B_alias       = B_dev.get();
 #else
-    T* const A_alias = A;
-    T* B_alias       = B;
+    T* const A_alias    = A;
+    T* B_alias          = B;
 #endif
 
     int incx = incx_;
@@ -532,7 +532,9 @@ void FDoper<T>::del2_4th(const Grid& Agrid, T* A, T* B) const
             {
                 for (int iz = 0; iz < dim2; iz++)
                 {
-                    int iiz = ifunc*ng + (iix + ix * incx + gpt * incy + iy * incy) + gpt;
+                    int iiz = ifunc * ng
+                              + (iix + ix * incx + gpt * incy + iy * incy)
+                              + gpt;
 
                     const T* __restrict__ v0   = A_alias + iiz;
                     const T* __restrict__ vmx  = A_alias + (iiz - incx);
@@ -561,7 +563,7 @@ void FDoper<T>::del2_4th(const Grid& Agrid, T* A, T* B) const
     }
 
 #ifdef HAVE_OPENMP_OFFLOAD
-    MemorySpace::copy_to_host(B_alias, ng*nfunc, B);
+    MemorySpace::copy_to_host(B_alias, ng * nfunc, B);
 #endif
 
     del2_4th_tm_.stop();

@@ -21,7 +21,7 @@ TEST_CASE("Laplacian 4th order for a array of function", "[laph4_batch]")
 
     const size_t numgridfunc = 10;
 
-    double* arrayofgf1 = new double [numgridfunc*grid.sizeg()];
+    double* arrayofgf1 = new double[numgridfunc * grid.sizeg()];
 
     const int endx = nghosts + grid.dim(0);
     const int endy = nghosts + grid.dim(1);
@@ -35,7 +35,7 @@ TEST_CASE("Laplacian 4th order for a array of function", "[laph4_batch]")
     pb::GridFunc<double> gf1(grid, 1, 1, 1);
     pb::GridFunc<double> gf2(grid, 1, 1, 1);
 
-    double* u1     = gf1.uu();
+    double* u1 = gf1.uu();
 
     for (int ix = nghosts; ix < endx; ix++)
     {
@@ -62,22 +62,24 @@ TEST_CASE("Laplacian 4th order for a array of function", "[laph4_batch]")
     // fill ghost values
     gf1.trade_boundaries();
 
-    for(size_t inum = 0; inum < numgridfunc; inum++)
-    {     
-        std::copy(gf1.uu(), gf1.uu()+grid.sizeg(), arrayofgf1+inum*grid.sizeg());
+    for (size_t inum = 0; inum < numgridfunc; inum++)
+    {
+        std::copy(gf1.uu(), gf1.uu() + grid.sizeg(),
+            arrayofgf1 + inum * grid.sizeg());
     }
 
-    double* arrayofgf2 = new double [numgridfunc*grid.sizeg()];
+    double* arrayofgf2 = new double[numgridfunc * grid.sizeg()];
 
     // apply FD (-Laplacian) operator to arrayofgf1, result in arrayofgf2
     lap.apply(grid, arrayofgf1, arrayofgf2);
-    
+
     // check values in gf2
     double* u2 = gf2.uu();
 
-    for(size_t inum = 0; inum < numgridfunc; inum++)
-    {     
-        std::copy(arrayofgf2+inum*grid.sizeg(), arrayofgf2+(inum+1)*grid.sizeg(), u2);
+    for (size_t inum = 0; inum < numgridfunc; inum++)
+    {
+        std::copy(arrayofgf2 + inum * grid.sizeg(),
+            arrayofgf2 + (inum + 1) * grid.sizeg(), u2);
 
         for (int ix = nghosts; ix < endx; ix++)
         {
@@ -93,12 +95,12 @@ TEST_CASE("Laplacian 4th order for a array of function", "[laph4_batch]")
                 {
                     double z            = grid.start(2) + iz * h[2];
                     double expected_val = coeffx * coeffx * sin(x * coeffx)
-                                      + coeffy * coeffy * sin(y * coeffy)
-                                      + coeffz * coeffz * sin(z * coeffz);
+                                          + coeffy * coeffy * sin(y * coeffy)
+                                          + coeffz * coeffz * sin(z * coeffz);
 
                     CHECK(u2[iiy + iz] == Approx(expected_val).margin(2.e-3));
                 }
-            }   
+            }
         }
     }
 

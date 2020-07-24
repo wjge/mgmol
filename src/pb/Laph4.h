@@ -101,10 +101,7 @@ public:
             this->del2_4th(A.func(k), B.func(k));
         }
     }
-    void apply(Grid& Agrid, T* A, T* B)
-    {
-        this->del2_4th(Agrid, A, B);
-    }
+    void apply(Grid& Agrid, T* A, T* B) { this->del2_4th(Agrid, A, B); }
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&) override;
     void jacobi(
