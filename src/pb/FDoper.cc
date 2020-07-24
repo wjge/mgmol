@@ -468,7 +468,6 @@ void FDoper<T>::del2_4th(GridFunc<T>& A, GridFunc<T>& B) const
     del2_4th_tm_.stop();
 }
 
-
 template <class T>
 void FDoper<T>::del2_4th(const Grid& Agrid, T* A, T* B) const
 {
@@ -503,9 +502,10 @@ void FDoper<T>::del2_4th(const Grid& Agrid, T* A, T* B) const
     const int dim1 = Agrid.dim(1);
     const int dim2 = Agrid.dim(2);
 
-#ifdef HAVE_OPENMP_OFFLOAD
     const size_t nfunc = 10;
     const size_t ng = grid_.sizeg();
+
+#ifdef HAVE_OPENMP_OFFLOAD
     std::unique_ptr<T, void (*)(T*)> A_dev(
         MemoryDev<T>::allocate(nfunc*ng), MemoryDev<T>::free);
     MemorySpace::copy_to_dev(A, nfunc*ng, A_dev.get());
@@ -561,7 +561,7 @@ void FDoper<T>::del2_4th(const Grid& Agrid, T* A, T* B) const
     }
 
 #ifdef HAVE_OPENMP_OFFLOAD
-    MemorySpace::copy_to_host(B_alias, ng, B);
+    MemorySpace::copy_to_host(B_alias, ng*nfunc, B);
 #endif
 
     del2_4th_tm_.stop();

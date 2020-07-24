@@ -19,7 +19,7 @@ TEST_CASE("Laplacian 4th order for a array of function", "[laph4_batch]")
 
     pb::Laph4<double> lap(grid);
 
-    const size_t numgridfunc=10;
+    const size_t numgridfunc = 10;
 
     double* arrayofgf1 = new double [numgridfunc*grid.sizeg()];
 
@@ -71,7 +71,6 @@ TEST_CASE("Laplacian 4th order for a array of function", "[laph4_batch]")
 
     // apply FD (-Laplacian) operator to arrayofgf1, result in arrayofgf2
     lap.apply(grid, arrayofgf1, arrayofgf2);
-
     
     // check values in gf2
     double* u2 = gf2.uu();
