@@ -139,7 +139,7 @@ if(${MGMOL_WITH_CLANG_FORMAT})
   find_package(CLANG_FORMAT)
   if(${CLANG_FORMAT_FOUND})
     message(STATUS "Indent with clang-format")
-    file(GLOB_RECURSE FORMAT_SOURCES src/*.cc src/*.h tests/*.cc tests/*.h)
+    file(GLOB_RECURSE FORMAT_SOURCES src/*.cc src/*.h tests/*.cc tests/*.h benchmarks/*.cc benchmarks/*.h)
     add_custom_target(format
       COMMAND ${CLANG_FORMAT_EXECUTABLE} -i -style=file ${FORMAT_SOURCES}
       DEPENDS ${FORMAT_SOURCES})
@@ -231,3 +231,4 @@ add_subdirectory(src)
 
 add_subdirectory(tests)
 
+add_subdirectory(benchmarks)
