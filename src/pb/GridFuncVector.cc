@@ -31,17 +31,17 @@ Timer GridFuncVectorInterface::wait_north_south_tm_("GridFuncVector::waitNS");
 Timer GridFuncVectorInterface::wait_up_down_tm_("GridFuncVector::waitUD");
 Timer GridFuncVectorInterface::wait_east_west_tm_("GridFuncVector::waitEW");
 
-template <typename T>
-std::vector<std::vector<T>> GridFuncVector<T>::comm_buf1_;
-template <typename T>
-std::vector<std::vector<T>> GridFuncVector<T>::comm_buf2_;
-template <typename T>
-std::vector<std::vector<T>> GridFuncVector<T>::comm_buf3_;
-template <typename T>
-std::vector<std::vector<T>> GridFuncVector<T>::comm_buf4_;
+template <typename ScalarType>
+std::vector<std::vector<ScalarType>> GridFuncVector<ScalarType>::comm_buf1_;
+template <typename ScalarType>
+std::vector<std::vector<ScalarType>> GridFuncVector<ScalarType>::comm_buf2_;
+template <typename ScalarType>
+std::vector<std::vector<ScalarType>> GridFuncVector<ScalarType>::comm_buf3_;
+template <typename ScalarType>
+std::vector<std::vector<ScalarType>> GridFuncVector<ScalarType>::comm_buf4_;
 
-template <typename T>
-void GridFuncVector<T>::setup()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::setup()
 {
     const int mytask = grid_.mype_env().mytask();
     north_ = (bc_[1] == 1 || (grid_.mype_env().mpi_neighbors(NORTH) > mytask));
@@ -82,14 +82,13 @@ void GridFuncVector<T>::setup()
     assert(dimy_ >= nghosts_);
     assert(dimz_ >= nghosts_);
 }
-template <typename T>
-void GridFuncVector<T>::prod(GridFuncVector<T>& A, const GridFunc<double>& B)
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::prod(
+    GridFuncVector<ScalarType>& A, const GridFunc<double>& B)
 {
     assert(A.grid_.sizeg() == grid_.sizeg());
     assert(B.grid().sizeg() == grid_.sizeg());
     assert(A.size() == size());
-
-    if (!grid_.active()) return;
 
     prod_tm_.start();
 
@@ -111,11 +110,12 @@ void GridFuncVector<T>::prod(GridFuncVector<T>& A, const GridFunc<double>& B)
             for (int j = 0; j < nf; j++)
             {
 
-                T* __restrict__ pu       = functions_[j]->uu(ibstart);
-                const T* __restrict__ v1 = A.functions_[j]->uu(ibstart);
+                ScalarType* __restrict__ pu = functions_[j]->uu(ibstart);
+                const ScalarType* __restrict__ v1
+                    = A.functions_[j]->uu(ibstart);
                 for (int i = 0; i < npt; i++)
                 {
-                    pu[i] = (T)(v1[i] * v2[i]);
+                    pu[i] = (ScalarType)(v1[i] * v2[i]);
                 }
             }
     }
@@ -128,14 +128,13 @@ void GridFuncVector<T>::prod(GridFuncVector<T>& A, const GridFunc<double>& B)
     prod_tm_.stop();
 }
 
-template <typename T>
-void GridFuncVector<T>::prod(GridFuncVector<T>& A, const GridFunc<float>& B)
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::prod(
+    GridFuncVector<ScalarType>& A, const GridFunc<float>& B)
 {
     assert(A.grid_.sizeg() == grid_.sizeg());
     assert(B.grid().sizeg() == grid_.sizeg());
     assert(A.size() == size());
-
-    if (!grid_.active()) return;
 
     prod_tm_.start();
 
@@ -157,11 +156,12 @@ void GridFuncVector<T>::prod(GridFuncVector<T>& A, const GridFunc<float>& B)
             for (int j = 0; j < nf; j++)
             {
 
-                T* __restrict__ pu       = functions_[j]->uu(ibstart);
-                const T* __restrict__ v1 = A.functions_[j]->uu(ibstart);
+                ScalarType* __restrict__ pu = functions_[j]->uu(ibstart);
+                const ScalarType* __restrict__ v1
+                    = A.functions_[j]->uu(ibstart);
                 for (int i = 0; i < npt; i++)
                 {
-                    pu[i] = (T)(v1[i] * v2[i]);
+                    pu[i] = (ScalarType)(v1[i] * v2[i]);
                 }
             }
     }
@@ -174,8 +174,8 @@ void GridFuncVector<T>::prod(GridFuncVector<T>& A, const GridFunc<float>& B)
     prod_tm_.stop();
 }
 
-template <typename T>
-void GridFuncVector<T>::wait_north_south()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::wait_north_south()
 {
     if (grid_.mype_env().n_mpi_task(1) == 1) return;
 
@@ -194,8 +194,8 @@ void GridFuncVector<T>::wait_north_south()
 
     wait_north_south_tm_.stop();
 }
-template <typename T>
-void GridFuncVector<T>::wait_east_west()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::wait_east_west()
 {
     if (grid_.mype_env().n_mpi_task(0) == 1) return;
 
@@ -214,8 +214,8 @@ void GridFuncVector<T>::wait_east_west()
 
     wait_east_west_tm_.stop();
 }
-template <typename T>
-void GridFuncVector<T>::wait_up_down()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::wait_up_down()
 {
     if (grid_.mype_env().n_mpi_task(2) == 1) return;
 
@@ -235,8 +235,8 @@ void GridFuncVector<T>::wait_up_down()
     wait_up_down_tm_.stop();
 }
 
-template <typename T>
-void GridFuncVector<T>::allocate_buffers(const int nfunc)
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::allocate_buffers(const int nfunc)
 {
     static int last_nfunc = 0;
 
@@ -266,19 +266,19 @@ void GridFuncVector<T>::allocate_buffers(const int nfunc)
         last_nfunc = nfunc;
     }
 }
-template <typename T>
-void GridFuncVector<T>::initiateNorthSouthComm(
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::initiateNorthSouthComm(
     const int begin_color, const int end_color)
 {
-    std::vector<T>& comm_buf1(comm_buf1_[1]);
-    std::vector<T>& comm_buf2(comm_buf2_[1]);
-    std::vector<T>& comm_buf3(comm_buf3_[1]);
-    std::vector<T>& comm_buf4(comm_buf4_[1]);
+    std::vector<ScalarType>& comm_buf1(comm_buf1_[1]);
+    std::vector<ScalarType>& comm_buf2(comm_buf2_[1]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[1]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[1]);
 
     const int ncolors = end_color - begin_color;
 
     const size_t sizebuffer = 1 + nfunc_max_global_ * south_north_size_;
-    const size_t sdimz      = dimz_ * sizeof(T);
+    const size_t sdimz      = dimz_ * sizeof(ScalarType);
     if (north_)
         grid_.mype_env().Irecv(
             &comm_buf4[0], sizebuffer, NORTH, &req_north_south_[3]);
@@ -294,17 +294,18 @@ void GridFuncVector<T>::initiateNorthSouthComm(
 
     if (south_)
     {
-        T* buf2_ptr = &comm_buf2[0];
+        ScalarType* buf2_ptr = &comm_buf2[0];
         // first element will tell how many functions (data) are in buffer
-        *buf2_ptr = (T)ncolors;
+        *buf2_ptr = (ScalarType)ncolors;
         buf2_ptr++;
         // pack data
         for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
             {
-                const T* uus = functions_[color]->uu(nghosts_ * (incy_ + 1));
-                *buf2_ptr    = (T)gid_[iloc][color];
+                const ScalarType* uus
+                    = functions_[color]->uu(nghosts_ * (incy_ + 1));
+                *buf2_ptr = (ScalarType)gid_[iloc][color];
                 buf2_ptr++;
                 for (int j = 0; j < jmax; j += incy_)
                     for (int i = imin + iloc * iinc;
@@ -321,17 +322,17 @@ void GridFuncVector<T>::initiateNorthSouthComm(
 
     if (north_)
     {
-        T* buf1_ptr = &comm_buf1[0];
+        ScalarType* buf1_ptr = &comm_buf1[0];
         // first element will tell how many functions (data) are in buffer
-        *buf1_ptr = (T)ncolors;
+        *buf1_ptr = (ScalarType)ncolors;
         buf1_ptr++;
         // pack data
         for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
             {
-                const T* uus = functions_[color]->uu(nghosts_ + ymax);
-                *buf1_ptr    = (T)gid_[iloc][color];
+                const ScalarType* uus = functions_[color]->uu(nghosts_ + ymax);
+                *buf1_ptr             = (ScalarType)gid_[iloc][color];
                 buf1_ptr++;
                 for (int j = 0; j < jmax; j += incy_)
                     for (int i = imin + iloc * iinc;
@@ -346,16 +347,16 @@ void GridFuncVector<T>::initiateNorthSouthComm(
             NORTH, &req_north_south_[0]);
     }
 }
-template <typename T>
-void GridFuncVector<T>::finishNorthSouthComm()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::finishNorthSouthComm()
 {
     finishExchangeNorthSouth_tm_.start();
 
-    std::vector<T>& comm_buf3(comm_buf3_[1]);
-    std::vector<T>& comm_buf4(comm_buf4_[1]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[1]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[1]);
 
     const int ymax     = dimy_ * grid_.inc(1);
-    const size_t sdimz = dimz_ * sizeof(T);
+    const size_t sdimz = dimz_ * sizeof(ScalarType);
 
     if (grid_.mype_env().n_mpi_task(1) > 1)
     {
@@ -366,7 +367,7 @@ void GridFuncVector<T>::finishNorthSouthComm()
 
         if (north_)
         {
-            T* buf4_ptr            = &comm_buf4[0];
+            ScalarType* buf4_ptr   = &comm_buf4[0];
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
@@ -386,7 +387,7 @@ void GridFuncVector<T>::finishNorthSouthComm()
                             const short lid = ilid->second;
                             if (gid == gid_[iloc][lid])
                             {
-                                T* uus = functions_[lid]->uu(
+                                ScalarType* uus = functions_[lid]->uu(
                                     nghosts_ * (incy_ + 1) + ymax);
                                 for (int j = 0; j < jmax; j += incy_)
                                     for (int i = imin + iloc * iinc;
@@ -431,7 +432,7 @@ void GridFuncVector<T>::finishNorthSouthComm()
 
         if (south_)
         {
-            T* buf3_ptr            = &comm_buf3[0];
+            ScalarType* buf3_ptr   = &comm_buf3[0];
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
@@ -450,7 +451,7 @@ void GridFuncVector<T>::finishNorthSouthComm()
                             const short lid = ilid->second;
                             if (gid == gid_[iloc][lid])
                             {
-                                T* uus = functions_[lid]->uu(nghosts_);
+                                ScalarType* uus = functions_[lid]->uu(nghosts_);
                                 for (int j = 0; j < jmax; j += incy_)
                                     for (int i = imin + iloc * iinc;
                                          i < imin + (iloc + 1) * iinc;
@@ -500,7 +501,7 @@ void GridFuncVector<T>::finishNorthSouthComm()
             // only for i already initialized
             for (int k = 0; k < nfunc_; k++)
             {
-                T* pu = functions_[k]->uu();
+                ScalarType* pu = functions_[k]->uu();
                 for (int j = 0; j < nghosts_ * incy_; j += incy_)
                     for (int i = nghosts_ * incx_;
                          i < (dimx_ + nghosts_) * incx_; i += incx_)
@@ -516,14 +517,14 @@ void GridFuncVector<T>::finishNorthSouthComm()
     finishExchangeNorthSouth_tm_.stop();
 }
 
-template <typename T>
-void GridFuncVector<T>::initiateUpDownComm(
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::initiateUpDownComm(
     const int begin_color, const int end_color)
 {
-    std::vector<T>& comm_buf1(comm_buf1_[2]);
-    std::vector<T>& comm_buf2(comm_buf2_[2]);
-    std::vector<T>& comm_buf3(comm_buf3_[2]);
-    std::vector<T>& comm_buf4(comm_buf4_[2]);
+    std::vector<ScalarType>& comm_buf1(comm_buf1_[2]);
+    std::vector<ScalarType>& comm_buf2(comm_buf2_[2]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[2]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[2]);
 
     const int ncolors = end_color - begin_color;
 
@@ -544,17 +545,17 @@ void GridFuncVector<T>::initiateUpDownComm(
 
     if (up_)
     {
-        T* buf1_ptr = &comm_buf1[0];
+        ScalarType* buf1_ptr = &comm_buf1[0];
         // first element will tell how many functions (data) are in buffer
-        *buf1_ptr = (T)ncolors;
+        *buf1_ptr = (ScalarType)ncolors;
         buf1_ptr++;
         for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
             {
-                const T* const uus
+                const ScalarType* const uus
                     = functions_[color]->uu(nghosts_ + incy_ * iinit);
-                *buf1_ptr = (T)gid_[iloc][color];
+                *buf1_ptr = (ScalarType)gid_[iloc][color];
                 buf1_ptr++;
                 for (int j = 0; j < nghosts_; j++)
                 {
@@ -569,17 +570,17 @@ void GridFuncVector<T>::initiateUpDownComm(
     }
     if (down_)
     {
-        T* buf2_ptr = &comm_buf2[0];
+        ScalarType* buf2_ptr = &comm_buf2[0];
         // first element will tell how many functions (data) are in buffer
-        *buf2_ptr = (T)ncolors;
+        *buf2_ptr = (ScalarType)ncolors;
         buf2_ptr++;
         for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
             {
-                const T* const uus
+                const ScalarType* const uus
                     = functions_[color]->uu(nghosts_ + incy_ * iinit);
-                *buf2_ptr = (T)gid_[iloc][color];
+                *buf2_ptr = (ScalarType)gid_[iloc][color];
                 buf2_ptr++;
                 for (int j = 0; j < nghosts_; j++)
                 {
@@ -593,13 +594,13 @@ void GridFuncVector<T>::initiateUpDownComm(
             &comm_buf2[0], 1 + ncolors * up_down_size_, DOWN, &req_up_down_[2]);
     }
 }
-template <typename T>
-void GridFuncVector<T>::finishUpDownComm()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::finishUpDownComm()
 {
     finishExchangeUpDown_tm_.start();
 
-    std::vector<T>& comm_buf3(comm_buf3_[2]);
-    std::vector<T>& comm_buf4(comm_buf4_[2]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[2]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[2]);
 
     const int zmax = dimz_;
 
@@ -610,7 +611,7 @@ void GridFuncVector<T>::finishUpDownComm()
         const int ione = 1;
         if (down_)
         {
-            T* buf3_ptr            = &comm_buf3[0];
+            ScalarType* buf3_ptr   = &comm_buf3[0];
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
@@ -631,7 +632,7 @@ void GridFuncVector<T>::finishUpDownComm()
                             {
                                 for (int j = 0; j < nghosts_; j++)
                                 {
-                                    T* const uus
+                                    ScalarType* const uus
                                         = functions_[lid]->uu(nghosts_ - 1 - j);
                                     Tcopy(&incxy_, buf3_ptr, &ione,
                                         &uus[incy_ * iinit
@@ -659,7 +660,7 @@ void GridFuncVector<T>::finishUpDownComm()
         }
         if (up_)
         {
-            T* buf4_ptr            = &comm_buf4[0];
+            ScalarType* buf4_ptr   = &comm_buf4[0];
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
@@ -680,7 +681,7 @@ void GridFuncVector<T>::finishUpDownComm()
                             {
                                 for (int j = 0; j < nghosts_; j++)
                                 {
-                                    T* const uus = functions_[lid]->uu(
+                                    ScalarType* const uus = functions_[lid]->uu(
                                         nghosts_ + zmax + j);
                                     Tcopy(&incxy_, buf4_ptr, &ione,
                                         &uus[incy_ * iinit
@@ -716,7 +717,7 @@ void GridFuncVector<T>::finishUpDownComm()
 
             for (int k = 0; k < nfunc_; k++)
             {
-                T* pu = functions_[k]->uu();
+                ScalarType* pu = functions_[k]->uu();
                 for (int j = 0; j < nghosts_; j++)
                 {
                     Tcopy(&dimxy_, &pu[nghosts_ - j + iinit * incy_ + zmax - 1],
@@ -733,20 +734,20 @@ void GridFuncVector<T>::finishUpDownComm()
 
     finishExchangeUpDown_tm_.stop();
 }
-template <typename T>
-void GridFuncVector<T>::initiateEastWestComm(
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::initiateEastWestComm(
     const int begin_color, const int end_color)
 {
-    std::vector<T>& comm_buf1(comm_buf1_[0]);
-    std::vector<T>& comm_buf2(comm_buf2_[0]);
-    std::vector<T>& comm_buf3(comm_buf3_[0]);
-    std::vector<T>& comm_buf4(comm_buf4_[0]);
+    std::vector<ScalarType>& comm_buf1(comm_buf1_[0]);
+    std::vector<ScalarType>& comm_buf2(comm_buf2_[0]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[0]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[0]);
 
     const int ncolors = end_color - begin_color;
 
     const int sizebuffer = 1 + nfunc_max_global_ * (east_west_size_ + 1);
     const int xmax       = dimx_ * grid_.inc(0);
-    const size_t east_west_size_data = east_west_size_ * sizeof(T);
+    const size_t east_west_size_data = east_west_size_ * sizeof(ScalarType);
 
     /* Non-blocking MPI */
     if (east_)
@@ -757,17 +758,17 @@ void GridFuncVector<T>::initiateEastWestComm(
             &comm_buf4[0], sizebuffer, WEST, &req_east_west_[2]);
     if (west_)
     {
-        T* buf1_ptr = &comm_buf1[0];
+        ScalarType* buf1_ptr = &comm_buf1[0];
         // first element will tell how many functions (data) are in buffer
-        *buf1_ptr = (T)ncolors;
+        *buf1_ptr = (ScalarType)ncolors;
         buf1_ptr++;
 
         const int initu = east_west_size_;
         for (int color = begin_color; color < end_color; color++)
         {
-            *buf1_ptr = (T)gid_[0][color];
+            *buf1_ptr = (ScalarType)gid_[0][color];
             buf1_ptr++;
-            const T* const pu = functions_[color]->uu(initu);
+            const ScalarType* const pu = functions_[color]->uu(initu);
             memcpy(buf1_ptr, pu, east_west_size_data);
             buf1_ptr += east_west_size_;
         }
@@ -776,17 +777,17 @@ void GridFuncVector<T>::initiateEastWestComm(
     }
     if (east_)
     {
-        T* buf2_ptr = &comm_buf2[0];
+        ScalarType* buf2_ptr = &comm_buf2[0];
         // first element will tell how many functions (data) are in buffer
-        *buf2_ptr = (T)ncolors;
+        *buf2_ptr = (ScalarType)ncolors;
         buf2_ptr++;
 
         const int initu = xmax;
         for (int color = begin_color; color < end_color; color++)
         {
-            *buf2_ptr = (T)gid_[nsubdivx_ - 1][color];
+            *buf2_ptr = (ScalarType)gid_[nsubdivx_ - 1][color];
             buf2_ptr++;
-            const T* const pu = functions_[color]->uu(initu);
+            const ScalarType* const pu = functions_[color]->uu(initu);
             memcpy(buf2_ptr, pu, east_west_size_data);
             buf2_ptr += east_west_size_;
         }
@@ -794,23 +795,23 @@ void GridFuncVector<T>::initiateEastWestComm(
             &comm_buf2[0], sizebuffer, EAST, &req_east_west_[0]);
     }
 }
-template <typename T>
-void GridFuncVector<T>::finishEastWestComm()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::finishEastWestComm()
 {
     finishExchangeEastWest_tm_.start();
 
-    std::vector<T>& comm_buf3(comm_buf3_[0]);
-    std::vector<T>& comm_buf4(comm_buf4_[0]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[0]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[0]);
 
     const int xmax = dimx_ * grid_.inc(0);
 
     if (grid_.mype_env().n_mpi_task(0) > 1)
     {
 
-        const size_t east_west_size_data = east_west_size_ * sizeof(T);
+        const size_t east_west_size_data = east_west_size_ * sizeof(ScalarType);
         if (east_)
         {
-            T* buf3_ptr            = &comm_buf3[0];
+            ScalarType* buf3_ptr   = &comm_buf3[0];
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
@@ -828,7 +829,7 @@ void GridFuncVector<T>::finishEastWestComm()
                         short lid = ilid->second;
                         if (gid == gid_[nsubdivx_ - 1][lid])
                         {
-                            T* const pu = functions_[lid]->uu(initu);
+                            ScalarType* const pu = functions_[lid]->uu(initu);
                             memcpy(pu, buf3_ptr, east_west_size_data);
                         }
                     }
@@ -838,7 +839,7 @@ void GridFuncVector<T>::finishEastWestComm()
         }
         if (west_)
         {
-            T* buf4_ptr            = &comm_buf4[0];
+            ScalarType* buf4_ptr   = &comm_buf4[0];
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
@@ -856,7 +857,7 @@ void GridFuncVector<T>::finishEastWestComm()
                         short lid = ilid->second;
                         if (gid == gid_[0][lid])
                         {
-                            T* const pu = functions_[lid]->uu(initu);
+                            ScalarType* const pu = functions_[lid]->uu(initu);
                             memcpy(pu, buf4_ptr, east_west_size_data);
                         }
                     }
@@ -870,11 +871,12 @@ void GridFuncVector<T>::finishEastWestComm()
 
         if (bc_[0] == 1)
         {
-            const size_t east_west_size_data = east_west_size_ * sizeof(T);
+            const size_t east_west_size_data
+                = east_west_size_ * sizeof(ScalarType);
 
             for (int k = 0; k < nfunc_; k++)
             {
-                T* pu = functions_[k]->uu();
+                ScalarType* pu = functions_[k]->uu();
                 memcpy(&pu[0], &pu[xmax], east_west_size_data);
                 memcpy(&pu[east_west_size_ + xmax], &pu[east_west_size_],
                     east_west_size_data);
@@ -883,10 +885,9 @@ void GridFuncVector<T>::finishEastWestComm()
     }
     finishExchangeEastWest_tm_.stop();
 }
-template <typename T>
-void GridFuncVector<T>::trade_boundaries()
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::trade_boundaries()
 {
-    if (!grid_.active()) return;
     if (updated_boundaries_) return;
 
     for (int k = 0; k < nfunc_; k++)
@@ -968,8 +969,8 @@ void GridFuncVector<T>::trade_boundaries()
 
     trade_bc_tm_.stop();
 }
-template <typename T>
-void GridFuncVector<T>::restrict3D(GridFuncVector& ucoarse)
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::restrict3D(GridFuncVector& ucoarse)
 {
     if (!updated_boundaries_) trade_boundaries();
 
@@ -978,8 +979,8 @@ void GridFuncVector<T>::restrict3D(GridFuncVector& ucoarse)
         functions_[k]->restrict3D(*ucoarse.functions_[k]);
     }
 }
-template <typename T>
-void GridFuncVector<T>::extend3D(GridFuncVector& ucoarse)
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::extend3D(GridFuncVector& ucoarse)
 {
     if (!ucoarse.updated_boundaries_) ucoarse.trade_boundaries();
 
@@ -990,14 +991,13 @@ void GridFuncVector<T>::extend3D(GridFuncVector& ucoarse)
 
     updated_boundaries_ = false;
 }
-template <typename T>
-GridFuncVector<T>& GridFuncVector<T>::operator-=(const GridFuncVector& func)
+template <typename ScalarType>
+GridFuncVector<ScalarType>& GridFuncVector<ScalarType>::operator-=(
+    const GridFuncVector& func)
 {
     assert(func.grid_.sizeg() == grid_.sizeg());
     assert(func.grid_.ghost_pt() == grid_.ghost_pt());
     assert(this != &func);
-
-    if (!grid_.active()) return *this;
 
     for (short k = 0; k < nfunc_; k++)
     {
@@ -1008,8 +1008,9 @@ GridFuncVector<T>& GridFuncVector<T>::operator-=(const GridFuncVector& func)
 
     return *this;
 }
-template <typename T>
-void GridFuncVector<T>::axpy(const double alpha, const GridFuncVector<T>& func)
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::axpy(
+    const double alpha, const GridFuncVector<ScalarType>& func)
 {
     for (short k = 0; k < nfunc_; k++)
     {
@@ -1018,27 +1019,28 @@ void GridFuncVector<T>::axpy(const double alpha, const GridFuncVector<T>& func)
 
     updated_boundaries_ = (func.updated_boundaries_ && updated_boundaries_);
 }
-template <typename T>
-void GridFuncVector<T>::init_vect(const int k, T* vv, const char dis) const
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::init_vect(
+    const int k, ScalarType* vv, const char dis) const
 {
     functions_[k]->init_vect(vv, dis);
 }
-template <typename T>
-void GridFuncVector<T>::getValues(const int k, float* vv) const
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::getValues(const int k, float* vv) const
 {
     assert(k < static_cast<int>(functions_.size()));
     functions_[k]->getValues(vv);
 }
-template <typename T>
-void GridFuncVector<T>::getValues(const int k, double* vv) const
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::getValues(const int k, double* vv) const
 {
     assert(k < static_cast<int>(functions_.size()));
     functions_[k]->getValues(vv);
 }
 
 // build list of local gids I need ghost values for
-template <typename T>
-void GridFuncVector<T>::communicateRemoteGids(
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::communicateRemoteGids(
     const int begin_color, const int end_color)
 {
     const int ncolors = end_color - begin_color;
@@ -1102,8 +1104,8 @@ void GridFuncVector<T>::communicateRemoteGids(
 }
 
 // assumes all processors call with same arguments
-template <typename T>
-void GridFuncVector<T>::trade_boundaries_colors(
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::trade_boundaries_colors(
     const short first_color, const short last_color)
 {
     assert(first_color >= 0);
@@ -1115,13 +1117,12 @@ void GridFuncVector<T>::trade_boundaries_colors(
     //    std::cout << "Color " << first_color << " to " << last_color - 1
     //              << std::endl;
 
-    if (!grid_.active()) return;
     if (updated_boundaries_) return;
 
-    std::vector<T>& comm_buf1(comm_buf1_[0]);
-    std::vector<T>& comm_buf2(comm_buf2_[0]);
-    std::vector<T>& comm_buf3(comm_buf3_[0]);
-    std::vector<T>& comm_buf4(comm_buf4_[0]);
+    std::vector<ScalarType>& comm_buf1(comm_buf1_[0]);
+    std::vector<ScalarType>& comm_buf2(comm_buf2_[0]);
+    std::vector<ScalarType>& comm_buf3(comm_buf3_[0]);
+    std::vector<ScalarType>& comm_buf4(comm_buf4_[0]);
 
     const short ncolors   = last_color - first_color;
     const short end_color = std::min(last_color, (short)functions_.size());
@@ -1136,7 +1137,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
     const int ymax = dimy_ * grid_.inc(1);
     const int zmax = dimz_;
 
-    const size_t sdimz = dimz_ * sizeof(T);
+    const size_t sdimz = dimz_ * sizeof(ScalarType);
 
     communicateRemoteGids(first_color, last_color);
 
@@ -1163,9 +1164,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (south_)
         {
-            T* buf2_ptr = &comm_buf2[0];
+            ScalarType* buf2_ptr = &comm_buf2[0];
             // first element will tell how many functions (data) are in buffer
-            *buf2_ptr = (T)ncolors;
+            *buf2_ptr = (ScalarType)ncolors;
             buf2_ptr++;
             // pack data
             for (short color = first_color; color < last_color; color++)
@@ -1176,8 +1177,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
                         = remote_gids_[SOUTH][nsubdivx_ * color + iloc];
                     const short k = gid2lid_[rgid];
                     assert(k < static_cast<int>(functions_.size()));
-                    const T* uus = functions_[k]->uu(nghosts_ * (incy_ + 1));
-                    *buf2_ptr    = (T)gid_[iloc][k];
+                    const ScalarType* uus
+                        = functions_[k]->uu(nghosts_ * (incy_ + 1));
+                    *buf2_ptr = (ScalarType)gid_[iloc][k];
                     buf2_ptr++;
                     for (int j = 0; j < jmax; j += incy_)
                         for (int i = imin + iloc * iinc;
@@ -1194,9 +1196,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (north_)
         {
-            T* buf1_ptr = &comm_buf1[0];
+            ScalarType* buf1_ptr = &comm_buf1[0];
             // first element will tell how many functions (data) are in buffer
-            *buf1_ptr = (T)ncolors;
+            *buf1_ptr = (ScalarType)ncolors;
             buf1_ptr++;
             // pack data
             for (short color = first_color; color < last_color; color++)
@@ -1205,9 +1207,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
                 {
                     const short rgid
                         = remote_gids_[NORTH][nsubdivx_ * color + iloc];
-                    const short k = gid2lid_[rgid];
-                    const T* uus  = functions_[k]->uu(nghosts_ + ymax);
-                    *buf1_ptr     = (T)gid_[iloc][k];
+                    const short k         = gid2lid_[rgid];
+                    const ScalarType* uus = functions_[k]->uu(nghosts_ + ymax);
+                    *buf1_ptr             = (ScalarType)gid_[iloc][k];
                     buf1_ptr++;
                     for (int j = 0; j < jmax; j += incy_)
                         for (int i = imin + iloc * iinc;
@@ -1226,7 +1228,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (north_)
         {
-            T* buf4_ptr            = &comm_buf4[0];
+            ScalarType* buf4_ptr   = &comm_buf4[0];
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
@@ -1246,7 +1248,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
                             const short lid = ilid->second;
                             if (gid == gid_[iloc][lid])
                             {
-                                T* uus = functions_[lid]->uu(
+                                ScalarType* uus = functions_[lid]->uu(
                                     nghosts_ * (incy_ + 1) + ymax);
                                 for (int j = 0; j < jmax; j += incy_)
                                     for (int i = imin + iloc * iinc;
@@ -1290,7 +1292,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (south_)
         {
-            T* buf3_ptr            = &comm_buf3[0];
+            ScalarType* buf3_ptr   = &comm_buf3[0];
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
@@ -1309,7 +1311,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
                             const short lid = ilid->second;
                             if (gid == gid_[iloc][lid])
                             {
-                                T* uus = functions_[lid]->uu(nghosts_);
+                                ScalarType* uus = functions_[lid]->uu(nghosts_);
                                 for (int j = 0; j < jmax; j += incy_)
                                     for (int i = imin + iloc * iinc;
                                          i < imin + (iloc + 1) * iinc;
@@ -1356,7 +1358,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
         // only for i already initialized
         for (short color = first_color; color < end_color; color++)
         {
-            T* pu = functions_[color]->uu();
+            ScalarType* pu = functions_[color]->uu();
             for (int j = 0; j < nghosts_ * incy_; j += incy_)
                 for (int i = nghosts_ * incx_; i < (dimx_ + nghosts_) * incx_;
                      i += incx_)
@@ -1390,9 +1392,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (up_)
         {
-            T* buf1_ptr = &comm_buf1[0];
+            ScalarType* buf1_ptr = &comm_buf1[0];
             // first element will tell how many functions (data) are in buffer
-            *buf1_ptr = (T)ncolors;
+            *buf1_ptr = (ScalarType)ncolors;
             buf1_ptr++;
             for (short color = first_color; color < last_color; color++)
             {
@@ -1401,9 +1403,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
                     const short rgid
                         = remote_gids_[UP][nsubdivx_ * color + iloc];
                     const short k = gid2lid_[rgid];
-                    const T* const uus
+                    const ScalarType* const uus
                         = functions_[k]->uu(nghosts_ + incy_ * iinit);
-                    *buf1_ptr = (T)gid_[iloc][k];
+                    *buf1_ptr = (ScalarType)gid_[iloc][k];
                     buf1_ptr++;
                     for (int j = 0; j < nghosts_; j++)
                     {
@@ -1419,9 +1421,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
         }
         if (down_)
         {
-            T* buf2_ptr = &comm_buf2[0];
+            ScalarType* buf2_ptr = &comm_buf2[0];
             // first element will tell how many functions (data) are in buffer
-            *buf2_ptr = (T)ncolors;
+            *buf2_ptr = (ScalarType)ncolors;
             buf2_ptr++;
             for (short color = first_color; color < last_color; color++)
             {
@@ -1430,9 +1432,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
                     const short rgid
                         = remote_gids_[DOWN][nsubdivx_ * color + iloc];
                     const short k = gid2lid_[rgid];
-                    const T* const uus
+                    const ScalarType* const uus
                         = functions_[k]->uu(nghosts_ + incy_ * iinit);
-                    *buf2_ptr = (T)gid_[iloc][k];
+                    *buf2_ptr = (ScalarType)gid_[iloc][k];
                     buf2_ptr++;
                     for (int j = 0; j < nghosts_; j++)
                     {
@@ -1450,7 +1452,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (down_)
         {
-            T* buf3_ptr            = &comm_buf3[0];
+            ScalarType* buf3_ptr   = &comm_buf3[0];
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
@@ -1471,7 +1473,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
                             {
                                 for (int j = 0; j < nghosts_; j++)
                                 {
-                                    T* const uus
+                                    ScalarType* const uus
                                         = functions_[lid]->uu(nghosts_ - 1 - j);
                                     Tcopy(&incxy_, buf3_ptr, &ione,
                                         &uus[incy_ * iinit
@@ -1499,7 +1501,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
         }
         if (up_)
         {
-            T* buf4_ptr            = &comm_buf4[0];
+            ScalarType* buf4_ptr   = &comm_buf4[0];
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
@@ -1520,7 +1522,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
                             {
                                 for (int j = 0; j < nghosts_; j++)
                                 {
-                                    T* const uus = functions_[lid]->uu(
+                                    ScalarType* const uus = functions_[lid]->uu(
                                         nghosts_ + zmax + j);
                                     Tcopy(&incxy_, buf4_ptr, &ione,
                                         &uus[incy_ * iinit
@@ -1552,7 +1554,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         for (short color = first_color; color < end_color; color++)
         {
-            T* pu = functions_[color]->uu();
+            ScalarType* pu = functions_[color]->uu();
             for (int j = 0; j < nghosts_; j++)
             {
                 Tcopy(&dimxy_, &pu[nghosts_ - j + iinit * incy_ + zmax - 1],
@@ -1567,7 +1569,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
     }
 
     const int east_west_size_        = nghosts_ * incx_;
-    const size_t east_west_size_data = east_west_size_ * sizeof(T);
+    const size_t east_west_size_data = east_west_size_ * sizeof(ScalarType);
 
     if (grid_.mype_env().n_mpi_task(0) > 1)
     {
@@ -1583,9 +1585,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (west_)
         {
-            T* buf1_ptr = &comm_buf1[0];
+            ScalarType* buf1_ptr = &comm_buf1[0];
             // first element will tell how many functions (data) are in buffer
-            *buf1_ptr = (T)ncolors;
+            *buf1_ptr = (ScalarType)ncolors;
             buf1_ptr++;
 
             const int initu = east_west_size_;
@@ -1596,11 +1598,11 @@ void GridFuncVector<T>::trade_boundaries_colors(
                 if (rgid >= 0)
                 {
                     const short k = gid2lid_[rgid];
-                    *buf1_ptr     = (T)gid_[0][k];
+                    *buf1_ptr     = (ScalarType)gid_[0][k];
                     buf1_ptr++;
                     if (k < static_cast<int>(functions_.size()))
                     {
-                        const T* const pu = functions_[k]->uu(initu);
+                        const ScalarType* const pu = functions_[k]->uu(initu);
                         memcpy(buf1_ptr, pu, east_west_size_data);
                     }
                 }
@@ -1616,9 +1618,9 @@ void GridFuncVector<T>::trade_boundaries_colors(
         }
         if (east_)
         {
-            T* buf2_ptr = &comm_buf2[0];
+            ScalarType* buf2_ptr = &comm_buf2[0];
             // first element will tell how many functions (data) are in buffer
-            *buf2_ptr = (T)ncolors;
+            *buf2_ptr = (ScalarType)ncolors;
             buf2_ptr++;
 
             const int initu = xmax;
@@ -1628,11 +1630,11 @@ void GridFuncVector<T>::trade_boundaries_colors(
                 if (rgid >= 0)
                 {
                     const short k = gid2lid_[rgid];
-                    *buf2_ptr     = (T)gid_[nsubdivx_ - 1][k];
+                    *buf2_ptr     = (ScalarType)gid_[nsubdivx_ - 1][k];
                     buf2_ptr++;
                     if (k < static_cast<int>(functions_.size()))
                     {
-                        const T* const pu = functions_[k]->uu(initu);
+                        const ScalarType* const pu = functions_[k]->uu(initu);
                         memcpy(buf2_ptr, pu, east_west_size_data);
                     }
                 }
@@ -1651,7 +1653,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         if (east_)
         {
-            T* buf3_ptr            = &comm_buf3[0];
+            ScalarType* buf3_ptr   = &comm_buf3[0];
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
@@ -1669,7 +1671,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
                         short lid = ilid->second;
                         if (gid == gid_[nsubdivx_ - 1][lid])
                         {
-                            T* const pu = functions_[lid]->uu(initu);
+                            ScalarType* const pu = functions_[lid]->uu(initu);
                             memcpy(pu, buf3_ptr, east_west_size_data);
                         }
                     }
@@ -1679,7 +1681,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
         }
         if (west_)
         {
-            T* buf4_ptr            = &comm_buf4[0];
+            ScalarType* buf4_ptr   = &comm_buf4[0];
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
@@ -1697,7 +1699,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
                         short lid = ilid->second;
                         if (gid == gid_[0][lid])
                         {
-                            T* const pu = functions_[lid]->uu(initu);
+                            ScalarType* const pu = functions_[lid]->uu(initu);
                             memcpy(pu, buf4_ptr, east_west_size_data);
                         }
                     }
@@ -1711,7 +1713,7 @@ void GridFuncVector<T>::trade_boundaries_colors(
 
         for (short color = first_color; color < end_color; color++)
         {
-            T* pu = functions_[color]->uu();
+            ScalarType* pu = functions_[color]->uu();
             memcpy(&pu[0], &pu[xmax], east_west_size_data);
             memcpy(&pu[east_west_size_ + xmax], &pu[east_west_size_],
                 east_west_size_data);
