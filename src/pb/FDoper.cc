@@ -376,8 +376,6 @@ void FDoper<T>::del2_4th(
 {
     assert(grid_.ghost_pt() > 1);
 
-    del2_4th_tm_.start();
-
     const double cc0 = inv12 * inv_h2_[0];
     const double c1x = -16. * cc0;
     const double c2x = 1. * cc0;
@@ -423,6 +421,8 @@ void FDoper<T>::del2_4th(
     int incx = incx_;
     int incy = incy_;
 
+    del2_4th_tm_.start();
+
     MGMOL_PARALLEL_FOR_COLLAPSE(4, A_alias, B_alias)
     for (size_t ifunc = 0; ifunc < nfunc; ifunc++)
     {
@@ -462,11 +462,13 @@ void FDoper<T>::del2_4th(
         }
     }
 
+    del2_4th_tm_.stop();
+
 #ifdef HAVE_OPENMP_OFFLOAD
     MemorySpace::copy_to_host(B_alias, ng * nfunc, B);
 #endif
 
-    del2_4th_tm_.stop();
+   del2_4th_tm_.print(std::cout);
 }
 
 template <class T>

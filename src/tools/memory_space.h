@@ -28,7 +28,7 @@
 #define MGMOL_PARALLEL_FOR(...)                                                \
   _Pragma(MGMOL_STRINGIFY(omp target teams distribute parallel for is_device_ptr(__VA_ARGS__)))
 #define MGMOL_PARALLEL_FOR_COLLAPSE(n, ...)                                    \
-  _Pragma(MGMOL_STRINGIFY(omp target teams distribute parallel for collapse(n) is_device_ptr(__VA_ARGS__)))
+  _Pragma(MGMOL_STRINGIFY(omp target teams distribute parallel for collapse(n) schedule(static,1) is_device_ptr(__VA_ARGS__)))
 #else
 #define MGMOL_PARALLEL_FOR(...) _Pragma(MGMOL_STRINGIFY(omp parallel for))
 #define MGMOL_PARALLEL_FOR_COLLAPSE(n, ...) _Pragma(MGMOL_STRINGIFY(omp parallel for collapse (n)))
