@@ -8,6 +8,11 @@
 #include "magma_v2.h"
 #endif
 
+#include "memory_space.h"
+
+template <typename ScalarType>
+using MemoryDev = MemorySpace::Memory<ScalarType, MemorySpace::Device>;
+
 int main(int argc, char* argv[])
 {
     int mpirc = MPI_Init(&argc, &argv);
@@ -16,6 +21,18 @@ int main(int argc, char* argv[])
         std::cerr << "MPI Initialization failed!!!" << std::endl;
         MPI_Abort(MPI_COMM_WORLD, 0);
     }
+
+    int size;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    std::string name1 = "total time";
+    std::string name2 = "FD time";
+    std::string name3 = "MPI time";
+
+    Timer time_totaltime(name1);
+    Timer time_fdtime(name2);
+    Timer time_mpitime(name3);
 
 #ifdef HAVE_MAGMA
     magma_int_t magmalog;
@@ -27,11 +44,31 @@ int main(int argc, char* argv[])
     }
 #endif
 
+    //warm up
+    std::vector<int> val_host(1024,1);
+#ifdef HAVE_OPENMP_OFFLOAD
+    std::unique_ptr<int, void (*)(int*)> val_dev(
+        MemoryDev<int>::allocate(size),MemoryDev<int>::free);
+
+    MemorySpace::copy_to_dev(val_host, val_dev);
+
+    int* val_alias = val_dev.get();
+#else
+    int* val_alias = val_host.data();
+#endif
+
+    MGMOL_PARALLEL_FOR(val_alias)
+    for(size_t i=0; i<1024; ++i)
+    {
+        val_alias[i]=i;
+    }
+
+    time_totaltime.start();
     {
         const double origin[3]  = { 0., 0., 0. };
         const double ll         = 2.;
         const double lattice[3] = { ll, ll, ll };
-        const unsigned ngpts[3] = { 32, 32, 32 };
+        const unsigned ngpts[3] = { 64, 64, 64 };
         const short nghosts     = 2;
 
         const double h[3] = { ll / static_cast<double>(ngpts[0]),
@@ -44,7 +81,10 @@ int main(int argc, char* argv[])
 
         pb::Laph4<double> lap(grid);
 
-        const size_t numgridfunc = 3000;
+        const size_t numgridfunc = 3000/static_cast<int>(size);
+
+        std::cout<<"size of mpi: "<< size <<
+                   ", num of func per mpi rank: " << numgridfunc << std::endl;
 
         auto arrayofgf1
             = std::unique_ptr<double[]>(new double[numgridfunc * grid.sizeg()]());
@@ -85,8 +125,13 @@ int main(int argc, char* argv[])
 
         gf1.set_updated_boundaries(false);
 
+
+        time_mpitime.start();
+
         // fill ghost values
         gf1.trade_boundaries();
+
+        time_mpitime.stop();
 
         for (size_t inum = 0; inum < numgridfunc; inum++)
         {
@@ -97,8 +142,12 @@ int main(int argc, char* argv[])
         auto arrayofgf2
             = std::unique_ptr<double[]>(new double[numgridfunc * grid.sizeg()]());
 
+        time_fdtime.start();
+
         // apply FD (-Laplacian) operator to arrayofgf1, result in arrayofgf2
         lap.apply(grid, arrayofgf1.get(), arrayofgf2.get(), numgridfunc);
+
+        time_fdtime.stop();
 
         // check values in gf2
         double* u2 = gf2.uu();
@@ -109,10 +158,15 @@ int main(int argc, char* argv[])
                 arrayofgf2.get() + (inum + 1) * grid.sizeg(), u2);
         }
     }
+    time_totaltime.stop();
 
 #ifdef HAVE_MAGMA
     magmalog = magma_finalize();
 #endif
+
+    time_totaltime.print(std::cout);
+    time_mpitime.print(std::cout);
+    time_fdtime.print(std::cout);
 
     mpirc = MPI_Finalize();
 
