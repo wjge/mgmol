@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 #else
     int* val_alias = val_host.data();
 #endif
-
+    //warm up
     MGMOL_PARALLEL_FOR(val_alias)
     for(size_t i=0; i<1024; ++i)
     {
@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
         const double origin[3]  = { 0., 0., 0. };
         const double ll         = 2.;
         const double lattice[3] = { ll, ll, ll };
-        const unsigned ngpts[3] = { 64, 64, 64 };
+        const unsigned ngpts[3] = { 32, 32, 32 };
         const short nghosts     = 2;
 
         const double h[3] = { ll / static_cast<double>(ngpts[0]),
@@ -81,13 +81,10 @@ int main(int argc, char* argv[])
 
         pb::Laph4<double> lap(grid);
 
-        const size_t numgridfunc = 3000/static_cast<int>(size);
+        const size_t numgridfunc = 3000/static_cast<size_t>(size);
 
         std::cout<<"size of mpi: "<< size <<
                    ", num of func per mpi rank: " << numgridfunc << std::endl;
-
-        auto arrayofgf1
-            = std::unique_ptr<double[]>(new double[numgridfunc * grid.sizeg()]());
 
         const int endx = nghosts + grid.dim(0);
         const int endy = nghosts + grid.dim(1);
@@ -123,39 +120,54 @@ int main(int argc, char* argv[])
             }
         }
 
-        gf1.set_updated_boundaries(false);
+        //divid the numgridfunc
+        const size_t nfuncgroups = 1;
+ 
+        const size_t nfuncpergroup = numgridfunc / nfuncgroups;        
+
+        const size_t nfuncpergroupspace = nfuncpergroup * grid.sizeg();        
+
+        std::cout<<"number of function groups "<< nfuncgroups <<
+                   ", number of functions per group: " << nfuncpergroup << std::endl;
 
 
-        time_mpitime.start();
-
-        // fill ghost values
-        gf1.trade_boundaries();
-
-        time_mpitime.stop();
-
-        for (size_t inum = 0; inum < numgridfunc; inum++)
+        for(size_t i=0; i<nfuncgroups; i++)
         {
-            std::copy(gf1.uu(), gf1.uu() + grid.sizeg(),
-                arrayofgf1.get() + inum * grid.sizeg());
-        }
+            auto arrayofgf1
+                = std::unique_ptr<double[]>(new double[nfuncpergroupspace]());
 
-        auto arrayofgf2
-            = std::unique_ptr<double[]>(new double[numgridfunc * grid.sizeg()]());
+            for (size_t inum = 0; inum < nfuncpergroup; inum++)
+            {
+                time_mpitime.start();
 
-        time_fdtime.start();
+                gf1.set_updated_boundaries(false);
+                // fill ghost values
+                gf1.trade_boundaries();
 
-        // apply FD (-Laplacian) operator to arrayofgf1, result in arrayofgf2
-        lap.apply(grid, arrayofgf1.get(), arrayofgf2.get(), numgridfunc);
+                time_mpitime.stop();
 
-        time_fdtime.stop();
+                std::copy(gf1.uu(), gf1.uu() + grid.sizeg(),
+                    arrayofgf1.get() + inum * grid.sizeg());
+            }
 
-        // check values in gf2
-        double* u2 = gf2.uu();
+            auto arrayofgf2
+                = std::unique_ptr<double[]>(new double[nfuncpergroupspace]());
 
-        for (size_t inum = 0; inum < numgridfunc; inum++)
-        {
-            std::copy(arrayofgf2.get() + inum * grid.sizeg(),
-                arrayofgf2.get() + (inum + 1) * grid.sizeg(), u2);
+            time_fdtime.start();
+
+            // apply FD (-Laplacian) operator to arrayofgf1, result in arrayofgf2
+            lap.apply(grid, arrayofgf1.get(), arrayofgf2.get(), nfuncpergroup);
+
+            time_fdtime.stop();
+
+            // check values in gf2
+            double* u2 = gf2.uu();
+
+            for (size_t inum = 0; inum < nfuncpergroup; inum++)
+            {
+                std::copy(arrayofgf2.get() + inum * grid.sizeg(),
+                    arrayofgf2.get() + (inum + 1) * grid.sizeg(), u2);
+            }
         }
     }
     time_totaltime.stop();

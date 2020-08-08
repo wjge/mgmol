@@ -423,7 +423,7 @@ void FDoper<T>::del2_4th(
 
     del2_4th_tm_.start();
 
-    MGMOL_PARALLEL_FOR_COLLAPSE(4, A_alias, B_alias)
+    MGMOL_PARALLEL_FOR_COLLAPSE(2, A_alias, B_alias) //0.037 s 3000x32^3 0.0156 1000x32^3 
     for (size_t ifunc = 0; ifunc < nfunc; ifunc++)
     {
         for (int ix = 0; ix < dim0; ix++)
@@ -467,8 +467,6 @@ void FDoper<T>::del2_4th(
 #ifdef HAVE_OPENMP_OFFLOAD
     MemorySpace::copy_to_host(B_alias, ng * nfunc, B);
 #endif
-
-   del2_4th_tm_.print(std::cout);
 }
 
 template <class T>
