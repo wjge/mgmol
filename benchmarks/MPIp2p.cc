@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 
     const int nooffunc = 3000; 
 
-    const int noofcomm = 1;
+    const int noofcomm = 2;
 
     int nooffuncpercomm = nooffunc/noofcomm;
 

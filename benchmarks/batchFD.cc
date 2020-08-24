@@ -88,7 +88,7 @@ int main(int argc, char* argv[])
         //for strong scaling
         //const size_t numgridfunc = 3000/static_cast<size_t>(size);
         //for weak scaling
-        const size_t numgridfunc = 1;
+        const size_t numgridfunc = 3000;
 
         std::cout<<"size of mpi: "<< size <<
                    ", num of func per mpi rank: " << numgridfunc << std::endl;
