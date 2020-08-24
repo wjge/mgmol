@@ -26,11 +26,9 @@ int main(int argc, char* argv[])
 
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    std::string name1 = "total time";
     std::string name2 = "FD time";
     std::string name3 = "MPI time";
 
-    Timer time_totaltime(name1);
     Timer time_fdtime(name2);
     Timer time_mpitime(name3);
 
@@ -45,43 +43,52 @@ int main(int argc, char* argv[])
 #endif
 
     //warm up
-    std::vector<int> val_host(1024,1);
+    for(size_t i=0;i<32;i++)
+    {
+        std::vector<int> val_host(1024,1);
 #ifdef HAVE_OPENMP_OFFLOAD
-    std::unique_ptr<int, void (*)(int*)> val_dev(
-        MemoryDev<int>::allocate(size),MemoryDev<int>::free);
+        std::unique_ptr<int, void (*)(int*)> val_dev(
+            MemoryDev<int>::allocate(1024),MemoryDev<int>::free);
 
-    MemorySpace::copy_to_dev(val_host, val_dev);
+        MemorySpace::copy_to_dev(val_host, val_dev);
 
-    int* val_alias = val_dev.get();
+        int* val_alias = val_dev.get();
 #else
-    int* val_alias = val_host.data();
+        int* val_alias = val_host.data();
 #endif
-    //warm up
-    MGMOL_PARALLEL_FOR(val_alias)
-    for(size_t i=0; i<1024; ++i)
-    {
-        val_alias[i]=i;
+        MGMOL_PARALLEL_FOR(val_alias)
+        for(size_t j=0; j<1024; ++j)
+        {
+            val_alias[j]=j;
+        }
+        MPI_Allreduce(MPI_IN_PLACE, val_host.data(), 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
     }
+    //end of warm up
 
-    time_totaltime.start();
     {
+        const unsigned sizexyz = std::cbrt(size);
+        std::cout << " sizexyz = " << sizexyz << std::endl;
         const double origin[3]  = { 0., 0., 0. };
         const double ll         = 2.;
         const double lattice[3] = { ll, ll, ll };
-        const unsigned ngpts[3] = { 32, 32, 32 };
+        const unsigned ngpts[3] = { 32*sizexyz, 32*sizexyz, 32*sizexyz };
         const short nghosts     = 2;
 
         const double h[3] = { ll / static_cast<double>(ngpts[0]),
             ll / static_cast<double>(ngpts[1]),
             ll / static_cast<double>(ngpts[2]) };
 
-        pb::PEenv mype_env(MPI_COMM_WORLD, ngpts[0], ngpts[1], ngpts[2]);
+        pb::PEenv mype_env(MPI_COMM_WORLD, ngpts[0], ngpts[1], ngpts[2], 1);
 
         pb::Grid grid(origin, lattice, ngpts, mype_env, nghosts, 0);
 
         pb::Laph4<double> lap(grid);
 
-        const size_t numgridfunc = 3000/static_cast<size_t>(size);
+        //for strong scaling
+        //const size_t numgridfunc = 3000/static_cast<size_t>(size);
+        //for weak scaling
+        const size_t numgridfunc = 1;
 
         std::cout<<"size of mpi: "<< size <<
                    ", num of func per mpi rank: " << numgridfunc << std::endl;
@@ -120,16 +127,17 @@ int main(int argc, char* argv[])
             }
         }
 
-        //divid the numgridfunc
+        //divid the functions into groups
         const size_t nfuncgroups = 1;
  
         const size_t nfuncpergroup = numgridfunc / nfuncgroups;        
 
         const size_t nfuncpergroupspace = nfuncpergroup * grid.sizeg();        
 
-        std::cout<<"number of function groups "<< nfuncgroups <<
-                   ", number of functions per group: " << nfuncpergroup << std::endl;
-
+        std::cout << "sizeg= " << grid.sizeg() <<
+                     ", number of function groups: " << nfuncgroups <<
+                     ", number of functions per group: " << nfuncpergroup << 
+                     ", size of functiongroup: " << nfuncpergroupspace <<std::endl;
 
         for(size_t i=0; i<nfuncgroups; i++)
         {
@@ -138,9 +146,10 @@ int main(int argc, char* argv[])
 
             for (size_t inum = 0; inum < nfuncpergroup; inum++)
             {
-                time_mpitime.start();
-
                 gf1.set_updated_boundaries(false);
+
+                MPI_Barrier(MPI_COMM_WORLD);
+                time_mpitime.start();
                 // fill ghost values
                 gf1.trade_boundaries();
 
@@ -159,24 +168,15 @@ int main(int argc, char* argv[])
             lap.apply(grid, arrayofgf1.get(), arrayofgf2.get(), nfuncpergroup);
 
             time_fdtime.stop();
-
-            // check values in gf2
-            double* u2 = gf2.uu();
-
-            for (size_t inum = 0; inum < nfuncpergroup; inum++)
-            {
-                std::copy(arrayofgf2.get() + inum * grid.sizeg(),
-                    arrayofgf2.get() + (inum + 1) * grid.sizeg(), u2);
-            }
         }
+
+        pb::FDoperInterface::printTimers(std::cout);
     }
-    time_totaltime.stop();
 
 #ifdef HAVE_MAGMA
     magmalog = magma_finalize();
 #endif
 
-    time_totaltime.print(std::cout);
     time_mpitime.print(std::cout);
     time_fdtime.print(std::cout);
 
