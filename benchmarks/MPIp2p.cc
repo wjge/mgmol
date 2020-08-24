@@ -22,15 +22,20 @@ int main(int argc, char* argv[])
 
     Timer time_mpitime(name);
 
-    std::cout<<"size of mpi: "<< size << std::endl;
+    const int noofdir = 6;
 
-    int nooffunc = 3000; 
+    const int nooffunc = 3000; 
 
-    int noofcomm = 1;
+    const int noofcomm = 1;
 
     int nooffuncpercomm = nooffunc/noofcomm;
 
-    const int NX = 32*32*6*nooffuncpercomm;
+    std::cout<<"size of mpi: "<< size << 
+    ", total number of functions: " << nooffunc <<
+    ", number of functions per mpi send/recv:" << nooffuncpercomm  << 
+    std::endl;
+
+    const int NX = 32*32*2*nooffuncpercomm;
 
     std::vector<double> C(NX);
     std::vector<double> D(NX);
@@ -43,13 +48,16 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     time_mpitime.start();
 
-    for(int i=0; i<noofcomm; i++)
+    for(int j=0; j<noofdir; j++)
     {
+        for(int i=0; i<noofcomm; i++)
+        {
             MPI_Irecv(D.data(), NX, MPI_DOUBLE, RIGHT, 2423, MPI_COMM_WORLD, &reqs[1]);
 
             MPI_Isend(C.data(), NX, MPI_DOUBLE, LEFT, 2423, MPI_COMM_WORLD, &reqs[0]);
-
+      
             MPI_Wait(reqs+1, MPI_STATUS_IGNORE);
+        }
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
