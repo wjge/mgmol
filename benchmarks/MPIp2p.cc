@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 
     int nooffunc = 3000; 
 
-    int noofcomm = 4;
+    int noofcomm = 1;
 
     int nooffuncpercomm = nooffunc/noofcomm;
 
@@ -35,6 +35,9 @@ int main(int argc, char* argv[])
     std::vector<double> C(NX);
     std::vector<double> D(NX);
 
+    int LEFT = (rank-1+size)%size;
+    int RIGHT = (rank+1+size)%size;
+
     MPI_Request reqs[2];
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -42,18 +45,14 @@ int main(int argc, char* argv[])
 
     for(int i=0; i<noofcomm; i++)
     {
-        if(rank==1)
-        {
-            MPI_Irecv(D.data(), NX, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &reqs[1]);
+            MPI_Irecv(D.data(), NX, MPI_DOUBLE, RIGHT, 2423, MPI_COMM_WORLD, &reqs[1]);
+
+            MPI_Isend(C.data(), NX, MPI_DOUBLE, LEFT, 2423, MPI_COMM_WORLD, &reqs[0]);
 
             MPI_Wait(reqs+1, MPI_STATUS_IGNORE);
-        }
-        if(rank==0)
-        {
-            MPI_Isend(C.data(), NX, MPI_DOUBLE, 1, 0, MPI_COMM_WORLD, &reqs[0]);
-        }
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
     time_mpitime.stop();
 
     time_mpitime.print(std::cout);
