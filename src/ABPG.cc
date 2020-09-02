@@ -25,7 +25,7 @@ void ABPG<T>::setup(T& orbitals)
 
     if (ct.wf_dyn == 1) // use Anderson extrapolation
     {
-        if (ct.getOrbitalsType() == OrbitalsType::Orthonormal)
+        if (ct.getOrthoType() == OrthoType::Orthonormal)
             wf_mix_
                 = new OrthoAndersonMix<T>(ct.wf_m, ct.betaAnderson, orbitals);
         else
@@ -79,7 +79,7 @@ void ABPG<T>::update_states(T& orbitals, T& res, T& work_orbitals,
 
     Control& ct = *(Control::instance());
 
-    if ((ct.getPrecondType() % 10) == 0 && ct.getMGlevels() >= 0)
+    if (ct.withPreconditioner())
     {
         // PRECONDITIONING
         // compute the preconditioned steepest descent direction
@@ -129,7 +129,7 @@ void ABPG<T>::update_states(T& orbitals, T& res, T& work_orbitals,
         // Preconditioned Power Method
         orbitals.axpy(alpha, res);
 
-        if (ct.getOrbitalsType() == OrbitalsType::Orthonormal)
+        if (ct.getOrthoType() == OrthoType::Orthonormal)
             orbitals.orthonormalizeLoewdin(false);
     }
     orbitals.incrementIterativeIndex();

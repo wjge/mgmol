@@ -270,7 +270,13 @@ int main(int argc, char** argv)
                 po::value<float>()->default_value(10000.),
                 "initial orbitals radius")("Orbitals.temperature",
                 po::value<float>()->default_value(0.),
-                "electronic temperature [K]")("ProjectedMatrices.solver",
+                "electronic temperature [K]")("Orbitals.bcx",
+                po::value<string>()->default_value("periodic"),
+                "orbitals boundary condition x")("Orbitals.bcy",
+                po::value<string>()->default_value("periodic"),
+                "orbitals boundary condition y")("Orbitals.bcz",
+                po::value<string>()->default_value("periodic"),
+                "orbitals boundary condition z")("ProjectedMatrices.solver",
                 po::value<string>()->default_value("exact"),
                 "solver for projected matrices")("ProjectedMatrices.printMM",
                 po::value<bool>()->default_value(false),
@@ -607,7 +613,7 @@ int main(int argc, char** argv)
         if (myPEenv.color() == 0)
         {
             assert(ct.getMGlevels() >= -1);
-            if (ct.getMGlevels() >= 0 && ct.getPrecondType() % 10 == 0)
+            if (ct.withPreconditioner())
             {
                 const pb::Grid& mygrid = mymesh->grid();
 

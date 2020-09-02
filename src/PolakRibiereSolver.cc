@@ -54,8 +54,7 @@ PolakRibiereSolver<T>::PolakRibiereSolver(Hamiltonian<T>* hamiltonian,
     sigma_a_ = 1.e-4;
     sigma_b_ = 1.e-1;
 
-    with_preconditioner_
-        = ((ct.getPrecondType() % 10) == 0 && ct.getMGlevels() >= 0);
+    with_preconditioner_ = (ct.withPreconditioner());
 }
 
 template <class T>
@@ -273,7 +272,7 @@ int PolakRibiereSolver<T>::solve(T& orbitals, T& work_orbitals, Ions& ions,
     const short max_steps, const short iprint, double& last_eks)
 {
     Control& ct(*(Control::instance()));
-    assert(ct.getOrbitalsType() != OrbitalsType::Eigenfunctions);
+    assert(ct.getOrthoType() != OrthoType::Eigenfunctions);
 
     solve_tm_.start();
 
@@ -484,13 +483,13 @@ int PolakRibiereSolver<T>::solve(T& orbitals, T& work_orbitals, Ions& ions,
 
         orbitals.incrementIterativeIndex();
 
-        if (ct.getOrbitalsType() != OrbitalsType::Orthonormal)
+        if (ct.getOrthoType() != OrthoType::Orthonormal)
         {
             orbitals.normalize();
         }
 
         // recompute overlap
-        if (ct.getOrbitalsType() != OrbitalsType::Orthonormal)
+        if (ct.getOrthoType() != OrthoType::Orthonormal)
         {
             orbitals.computeGramAndInvS();
         }

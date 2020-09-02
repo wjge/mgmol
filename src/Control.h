@@ -73,7 +73,7 @@ enum class DMEigensolverType
     UNDEFINED
 };
 
-enum class OrbitalsType
+enum class OrthoType
 {
     Eigenfunctions,
     Nonorthogonal,
@@ -173,7 +173,6 @@ private:
     short mg_levels_;
 
     // preconditioning type
-    // 0  = MG
     // 10 = MG, block implementation
     short precond_type_;
 
@@ -263,9 +262,7 @@ public:
 
     short getMGlevels() { return mg_levels_; }
 
-    short getPrecondType() const { return precond_type_; }
-
-    bool blockPrecond() const { return (precond_type_ / 10 == 1); }
+    bool withPreconditioner() const { return (mg_levels_ >= 0); }
 
     void convergeTightly()
     {
@@ -512,7 +509,7 @@ public:
     float thwidth;
 
     // boundary conditions
-    short bc[3];
+    short bcWF[3];
 
     // boundary conditions
     short bcPoisson[3];
@@ -686,18 +683,18 @@ public:
         }
     }
 
-    OrbitalsType getOrbitalsType()
+    OrthoType getOrthoType()
     {
         switch (orbital_type_)
         {
             case 0:
-                return OrbitalsType::Eigenfunctions;
+                return OrthoType::Eigenfunctions;
             case 1:
-                return OrbitalsType::Nonorthogonal;
+                return OrthoType::Nonorthogonal;
             case 2:
-                return OrbitalsType::Orthonormal;
+                return OrthoType::Orthonormal;
             default:
-                return OrbitalsType::UNDEFINED;
+                return OrthoType::UNDEFINED;
         }
     }
 

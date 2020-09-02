@@ -102,21 +102,24 @@ void Hamiltonian<T>::applyLocal(const int ncolors, T& phi, T& hphi)
 
     if (ct.Mehrstellen())
     {
-        pb::GridFunc<POTDTYPE> gfpot(mygrid, ct.bc[0], ct.bc[1], ct.bc[2]);
+        pb::GridFunc<POTDTYPE> gfpot(
+            mygrid, ct.bcWF[0], ct.bcWF[1], ct.bcWF[2]);
         gfpot.assign(vtot);
         if (ct.Mehrstellen()) gfpot.trade_boundaries();
         const std::vector<std::vector<int>>& gid(phi.getOverlappingGids());
         pb::GridFuncVector<ORBDTYPE> gfvw1(
-            mygrid, ct.bc[0], ct.bc[1], ct.bc[2], gid);
+            mygrid, ct.bcWF[0], ct.bcWF[1], ct.bcWF[2], gid);
         pb::GridFuncVector<ORBDTYPE>& gfvphi(*phi.getPtDataWGhosts());
         gfvw1.prod(gfvphi, gfpot);
 
-        pb::GridFunc<ORBDTYPE> gf_work1(mygrid, ct.bc[0], ct.bc[1], ct.bc[2]);
-        pb::GridFunc<ORBDTYPE> gf_work2(mygrid, ct.bc[0], ct.bc[1], ct.bc[2]);
+        pb::GridFunc<ORBDTYPE> gf_work1(
+            mygrid, ct.bcWF[0], ct.bcWF[1], ct.bcWF[2]);
+        pb::GridFunc<ORBDTYPE> gf_work2(
+            mygrid, ct.bcWF[0], ct.bcWF[1], ct.bcWF[2]);
         for (int i = 0; i < ncolors; i++)
         {
             // work1 = B*V*psi
-            lapOper_->rhs(gfvw1.func(i), gf_work1);
+            lapOper_->rhs(gfvw1.getGridFunc(i), gf_work1);
 
             // work2 = -Lap*phi
             lapOper_->apply(phi.getFuncWithGhosts(i), gf_work2);
@@ -141,6 +144,7 @@ void Hamiltonian<T>::applyLocal(const int ncolors, T& phi, T& hphi)
 // add to hij the elements <phi1|Hloc|phi2>
 // corresponding to the local part of the Hamiltonian
 template <>
+template <>
 void Hamiltonian<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals& phi1,
     LocGridOrbitals& phi2, dist_matrix::DistMatrix<double>& hij,
     const bool force)
@@ -154,6 +158,7 @@ void Hamiltonian<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals& phi1,
     phi1.addDotWithNcol2Matrix(*hlphi_, hij);
 }
 
+template <>
 template <>
 void Hamiltonian<ExtendedGridOrbitals>::addHlocal2matrix(
     ExtendedGridOrbitals& phi1, ExtendedGridOrbitals& phi2,
@@ -189,9 +194,10 @@ void Hamiltonian<T>::addHlocalij(
     proj_matrices->setLocalMatrixElementsHl(slm);
 }
 
-template <class T>
-void Hamiltonian<T>::addHlocal2matrix(
-    T& phi1, T& phi2, VariableSizeMatrix<sparserow>& mat, const bool force)
+template <>
+template <>
+void Hamiltonian<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals& phi1,
+    LocGridOrbitals& phi2, VariableSizeMatrix<sparserow>& mat, const bool force)
 {
     Control& ct = *(Control::instance());
 

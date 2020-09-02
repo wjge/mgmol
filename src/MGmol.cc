@@ -284,8 +284,8 @@ int MGmol<T>::initial()
         printWithTimeStamp("MGmol<T>::initial(), create T...", os_);
 
     current_orbitals_ = new T("Primary", mygrid, mymesh->subdivx(), ct.numst,
-        ct.bc, proj_matrices_, lrs_, currentMasks_, corrMasks_, local_cluster_,
-        true);
+        ct.bcWF, proj_matrices_, lrs_, currentMasks_, corrMasks_,
+        local_cluster_, true);
 
     increaseMemorySlotsForOrbitals();
 
@@ -365,7 +365,7 @@ int MGmol<T>::initial()
         proj_matrices_->setDMuniform(
             ct.getNelSpin(), current_orbitals_->getIterativeIndex());
 
-    rho_->setup(ct.getOrbitalsType(), current_orbitals_->getOverlappingGids());
+    rho_->setup(ct.getOrthoType(), current_orbitals_->getOverlappingGids());
 
     if (ct.restart_info <= 1)
     {
@@ -733,8 +733,7 @@ template <class T>
 void MGmol<T>::printEigAndOcc()
 {
     Control& ct = *(Control::instance());
-    if (!(ct.fullyOccupied()
-            && ct.getOrbitalsType() != OrbitalsType::Eigenfunctions
+    if (!(ct.fullyOccupied() && ct.getOrthoType() != OrthoType::Eigenfunctions
             && ct.occupationWidthIsZero())
         && onpe0)
     {
@@ -830,7 +829,8 @@ void MGmol<T>::printTimers()
             << std::endl;
     }
     pb::GridFuncInterface::printTimers(os_);
-    pb::GridFuncVectorInterface::printTimers(os_);
+    pb::GridFuncVector<double>::printTimers(os_);
+    pb::GridFuncVector<float>::printTimers(os_);
     pb::FDoperInterface::printTimers(os_);
     T::printTimers(os_);
     SinCosOps<T>::printTimers(os_);
@@ -963,7 +963,7 @@ void MGmol<T>::initKBR()
 }
 
 template <class T>
-double MGmol<T>::get_evnl(const Ions& ions, T& orbitals)
+double MGmol<T>::get_evnl(const Ions& ions)
 {
     evnl_tm_.start();
     Control& ct = *(Control::instance());
@@ -975,7 +975,7 @@ double MGmol<T>::get_evnl(const Ions& ions, T& orbitals)
             = dynamic_cast<ProjectedMatricesSparse*>(proj_matrices_);
         assert(projmatrices);
 
-        val = g_kbpsi_->getEvnl(ions, orbitals, projmatrices);
+        val = g_kbpsi_->getEvnl(ions, projmatrices);
     }
     else
     {
@@ -985,7 +985,7 @@ double MGmol<T>::get_evnl(const Ions& ions, T& orbitals)
                 proj_matrices_);
         assert(projmatrices);
 
-        val = g_kbpsi_->getEvnl(ions, orbitals, projmatrices);
+        val = g_kbpsi_->getEvnl(ions, projmatrices);
     }
 
     evnl_tm_.stop();
@@ -1268,7 +1268,7 @@ double MGmol<T>::computePrecondResidual(T& phi, T& hphi, T& res, Ions& ions,
     double norm2Res
         = computeConstraintResidual(phi, hphi, res, print_residual, norm_res);
 
-    if ((ct.getPrecondType() % 10) == 0 && ct.getMGlevels() >= 0)
+    if (ct.withPreconditioner())
     {
         // PRECONDITIONING
         // compute the preconditioned steepest descent direction

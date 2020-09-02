@@ -55,13 +55,9 @@ Control::Control()
     MPI_Comm_rank(comm_global_, &mype_);
 
     // default values
-    lrs_extrapolation = 1; // default
-    lrs_compute       = 0;
-    system_charge_    = 0.;
-    for (short i = 0; i < 3; i++)
-    {
-        bc[i] = 1;
-    }
+    lrs_extrapolation      = 1; // default
+    lrs_compute            = 0;
+    system_charge_         = 0.;
     poisson_pc_nu1         = 2;
     poisson_pc_nu2         = 2;
     poisson_pc_nlev        = 10;
@@ -126,6 +122,9 @@ Control::Control()
     bcPoisson[0]                      = -1;
     bcPoisson[1]                      = -1;
     bcPoisson[2]                      = -1;
+    bcWF[0]                           = -1;
+    bcWF[1]                           = -1;
+    bcWF[2]                           = -1;
     out_restart_file_type             = -1;
     spread_radius                     = -1.;
     iprint_residual                   = -1;
@@ -184,16 +183,18 @@ void Control::print(std::ostream& os)
 
     os << " Boundary conditions for Poisson: " << bcPoisson[0] << ", "
        << bcPoisson[1] << ", " << bcPoisson[2] << std::endl;
+    os << " Boundary conditions for Wavefunctions: " << bcWF[0] << ", "
+       << bcWF[1] << ", " << bcWF[2] << std::endl;
 
-    switch (getOrbitalsType())
+    switch (getOrthoType())
     {
-        case OrbitalsType::Eigenfunctions:
+        case OrthoType::Eigenfunctions:
             os << " Works in Eigenfunctions basis" << std::endl;
             break;
-        case OrbitalsType::Nonorthogonal:
+        case OrthoType::Nonorthogonal:
             os << " Works in Nonorthogonal orbitals basis" << std::endl;
             break;
-        case OrbitalsType::Orthonormal:
+        case OrthoType::Orthonormal:
             os << " Works in Orthonormal orbitals basis" << std::endl;
             break;
         default:
@@ -277,7 +278,7 @@ void Control::print(std::ostream& os)
     os << std::endl;
 
     os << " preconditioner factor:" << precond_factor << std::endl;
-    if (precond_type_ % 10 == 0)
+    if (precond_type_ == 10)
     {
         os << " Multigrid preconditioning for wave functions:" << std::endl;
         os << " # of Multigrid levels   : " << mg_levels_ << std::endl;
@@ -382,9 +383,9 @@ void Control::sync(void)
         short_buffer[30] = orbital_type_;
         short_buffer[31] = line_min;
         short_buffer[32] = thermostat_type;
-        short_buffer[33] = bc[0];
-        short_buffer[34] = bc[1];
-        short_buffer[35] = bc[2];
+        short_buffer[33] = bcWF[0];
+        short_buffer[34] = bcWF[1];
+        short_buffer[35] = bcWF[2];
         short_buffer[36] = bcPoisson[0];
         short_buffer[37] = bcPoisson[1];
         short_buffer[38] = bcPoisson[2];
@@ -592,9 +593,9 @@ void Control::sync(void)
     orbital_type_                    = short_buffer[30];
     line_min                         = short_buffer[31];
     thermostat_type                  = short_buffer[32];
-    bc[0]                            = short_buffer[33];
-    bc[1]                            = short_buffer[34];
-    bc[2]                            = short_buffer[35];
+    bcWF[0]                          = short_buffer[33];
+    bcWF[1]                          = short_buffer[34];
+    bcWF[2]                          = short_buffer[35];
     bcPoisson[0]                     = short_buffer[36];
     bcPoisson[1]                     = short_buffer[37];
     bcPoisson[2]                     = short_buffer[38];
@@ -714,13 +715,13 @@ void Control::adjust()
     {
         dm_mix = 1.;
     }
-    if (getOrbitalsType() == OrbitalsType::Eigenfunctions)
+    if (getOrthoType() == OrthoType::Eigenfunctions)
     {
         orthof = 0;
         dm_mix = 1.;
         wf_dyn = 0;
     }
-    if (getOrbitalsType() == OrbitalsType::Orthonormal)
+    if (getOrthoType() == OrthoType::Orthonormal)
     {
         orthof = 0;
     }
@@ -737,6 +738,15 @@ int Control::checkState()
         {
             (*MPIdata::sout)
                 << "Control::checkState() -> invalid boundary conditions"
+                << std::endl;
+            return -1;
+        }
+
+    for (short i = 0; i < 3; i++)
+        if ((bcWF[i] != 0) && (bcWF[i] != 1))
+        {
+            (*MPIdata::sout)
+                << "Control::checkState() -> invalid WF boundary conditions"
                 << std::endl;
             return -1;
         }
@@ -820,7 +830,7 @@ int Control::checkState()
     }
     assert(xctype == 0 || xctype == 2);
     assert(mix_pot < 2. && mix_pot > 0.);
-    assert(precond_type_ % 10 == 0);
+    assert(precond_type_ == 10);
     assert(project_out_psd == 0 || project_out_psd == 1);
     assert(wannier_transform_type == 0 || wannier_transform_type == 1
            || wannier_transform_type == 2);
@@ -828,7 +838,7 @@ int Control::checkState()
     assert(mg_levels_ >= -1);
     assert(rho0 > 0.);
     assert(drho0 > 0.);
-    assert(getOrbitalsType() != OrbitalsType::UNDEFINED);
+    assert(getOrthoType() != OrthoType::UNDEFINED);
     assert(num_MD_steps >= 0);
     assert(dt >= 0.);
     if (short_sighted > 0)
@@ -854,14 +864,6 @@ int Control::checkState()
                          << std::endl;
         (*MPIdata::sout) << "Control::checkState(): NOLMO centers required for "
                             "LR adaptation!"
-                         << std::endl;
-        return -1;
-    }
-
-    if (coloring_algo_ / 10 == 1 && precond_type_ / 10 == 0)
-    {
-        (*MPIdata::serr) << "ERROR in Control: local coloring algorithm "
-                            "requires block preconditioner!!!"
                          << std::endl;
         return -1;
     }
@@ -1022,7 +1024,7 @@ void Control::readRestartOutputInfo(std::ifstream* tfile)
 int Control::setPreconditionerParameters(const short type, const float factor,
     const bool project_out, const short nlevels, const float fgrid_hmax)
 {
-    if ((type % 10) != 0)
+    if (type != 10)
     {
         (*MPIdata::sout) << type << ": Invalid preconditioner type"
                          << std::endl;
@@ -1030,10 +1032,9 @@ int Control::setPreconditionerParameters(const short type, const float factor,
     }
 
     precond_type_ = type;
-    if (precond_type_ % 10 == 0)
+    if (precond_type_ == 10)
         (*MPIdata::sout) << "MG preconditioner" << std::endl;
-    if (precond_type_ / 10 == 1)
-        (*MPIdata::sout) << "Preconditioner: block implementation" << std::endl;
+    (*MPIdata::sout) << "Preconditioner: block implementation" << std::endl;
 
     precond_factor = factor;
     if (factor < 0.)
@@ -1219,7 +1220,7 @@ void Control::setLocMode(const float radius, const float lx, const float ly,
     cut_radius            = radius;
     min_distance_centers_ = mind_centers;
     loc_mode_ = (cut_radius < lx || cut_radius < ly || cut_radius < lz);
-    if (getOrbitalsType() != OrbitalsType::Nonorthogonal)
+    if (getOrthoType() != OrthoType::Nonorthogonal)
     {
         cut_radius = 1000.;
         loc_mode_  = false;
@@ -1362,6 +1363,7 @@ void Control::setOptions(const boost::program_options::variables_map& vm)
         assert(vm.count("Domain.lx"));
         assert(vm.count("Poisson.bcx"));
         assert(vm.count("xcFunctional"));
+        assert(vm.count("Orbitals.bcx"));
 
         std::string str;
 
@@ -1488,6 +1490,18 @@ void Control::setOptions(const boost::program_options::variables_map& vm)
         if (str.compare("0") == 0) bcPoisson[2] = 0;
         if (str.compare("periodic") == 0) bcPoisson[2] = 1;
         if (str.compare("charge") == 0) bcPoisson[2] = 2;
+
+        str = vm["Orbitals.bcx"].as<std::string>();
+        if (str.compare("0") == 0) bcWF[0] = 0;
+        if (str.compare("periodic") == 0) bcWF[0] = 1;
+
+        str = vm["Orbitals.bcy"].as<std::string>();
+        if (str.compare("0") == 0) bcWF[1] = 0;
+        if (str.compare("periodic") == 0) bcWF[1] = 1;
+
+        str = vm["Orbitals.bcz"].as<std::string>();
+        if (str.compare("0") == 0) bcWF[2] = 0;
+        if (str.compare("periodic") == 0) bcWF[2] = 1;
 
         str = vm["Poisson.solver"].as<std::string>();
         if (str.compare("CG") == 0) diel_flag_ = 10;
@@ -1859,14 +1873,7 @@ void Control::setOptions(const boost::program_options::variables_map& vm)
         loc_mode_ = cut_radius < 100. ? true : false;
         if (lrs_compute > 0 || !loc_mode_) lrs_extrapolation = 0;
 
-        if (coloring_algo_ >= 10)
-        {
-            precond_type_ = 10;
-        }
-        else
-        {
-            precond_type_ = 0;
-        }
+        precond_type_ = 10;
 
         if (vm.count("Quench.MLWC"))
         {
@@ -1907,7 +1914,7 @@ int Control::checkOptions()
         return -1;
     }
 
-    if (getOrbitalsType() == OrbitalsType::UNDEFINED)
+    if (getOrthoType() == OrthoType::UNDEFINED)
     {
         std::cerr << "ERROR: unknown orbitals type\n";
         return -1;

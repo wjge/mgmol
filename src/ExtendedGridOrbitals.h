@@ -61,8 +61,6 @@ private:
     static Timer normalize_tm_;
     static Timer axpy_tm_;
 
-    static short bc_[3];
-
     static int lda_; // leading dimension for storage
     static int numpt_;
     static int loc_numpt_;
@@ -143,8 +141,6 @@ public:
     friend class SinCosOps<ExtendedGridOrbitals>;
 
     double norm() const;
-
-    ProjectedMatricesInterface* proj_matrices() const { return proj_matrices_; }
 
     const std::vector<int>& getAllOverlappingGids() const
     {
