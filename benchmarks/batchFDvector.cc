@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
         {
            gids[0].push_back(i);
         }
-        pb::GridFuncVector<double> gfv(grid, 1, 1, 1, gids);
+        pb::GridFuncVector<double> gfv(grid, 1, 1, 1, gids, true);
 
         gfv.set_updated_boundaries(false);
         
