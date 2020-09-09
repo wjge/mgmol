@@ -54,6 +54,8 @@ void GridFuncVector<ScalarType, MemorySpaceType>::allocate(const int n)
         class_storage_.back(), total_size_memory_, 0
     );
 
+    MemorySpace::copy_to_dev(memory_, total_size_memory_, class_storage_.get());
+
     // jlf, 8/6/2020: one should be able to set this flag to true
     // but we may need to fix a few things for that to work
     updated_boundaries_ = false;
@@ -1046,18 +1048,19 @@ void GridFuncVector<ScalarType, MemorySpaceType>::init_vect(
 }
 
 template <typename ScalarType, typename MemorySpaceType>
-void GridFuncVector<ScalarType, MemorySpaceType>::getValues(const int k, float* vv) const
+template <typename InputScalarType>
+void GridFuncVector<ScalarType, MemorySpaceType>::getValues(const int k, InputScalarType* vv) const
 {
     assert(k < static_cast<int>(functions_.size()));
-    functions_[k]->template getValues<float, MemorySpaceType>(vv);
+    functions_[k]->template getValues<InputScalarType>(vv);
 }
 
-template <typename ScalarType, typename MemorySpaceType>
+/*template <typename ScalarType, typename MemorySpaceType>
 void GridFuncVector<ScalarType, MemorySpaceType>::getValues(const int k, double* vv) const
 {
     assert(k < static_cast<int>(functions_.size()));
     functions_[k]->template getValues<double, MemorySpaceType>(vv);
-}
+}*/
 
 // build list of local gids I need ghost values for
 template <typename ScalarType, typename MemorySpaceType>
@@ -1759,22 +1762,22 @@ template void GridFuncVector<double, MemorySpace::Host>::assign(
     const int i, const float* const v, const char dis);
 template void GridFuncVector<double, MemorySpace::Host>::assign(
     const int i, const double* const v, const char dis);
-template void GridFuncVector<float>::getValues<MemorySpace::Host>(
+template void GridFuncVector<float, MemorySpace::Host>::getValues<float>(
     const int, float*) const;
-template void GridFuncVector<float>::getValues<MemorySpace::Host>(
+template void GridFuncVector<float, MemorySpace::Host>::getValues<double>(
     const int, double*) const;
-template void GridFuncVector<double>::getValues<MemorySpace::Host>(
+template void GridFuncVector<double, MemorySpace::Host>::getValues<float>(
     const int, float*) const;
-template void GridFuncVector<double>::getValues<MemorySpace::Host>(
+template void GridFuncVector<double, MemorySpace::Host>::getValues<double>(
     const int, double*) const;
 #ifdef HAVE_MAGMA
-template void GridFuncVector<float>::getValues<MemorySpace::Device>(
+template void GridFuncVector<float, MemorySpace::Device>::getValues<float>(
     const int, float*) const;
-template void GridFuncVector<float>::getValues<MemorySpace::Device>(
+template void GridFuncVector<float, MemorySpace::Device>::getValues<double>(
     const int, double*) const;
-template void GridFuncVector<double>::getValues<MemorySpace::Device>(
+template void GridFuncVector<double, MemorySpace::Device>::getValues<float>(
     const int, float*) const;
-template void GridFuncVector<double>::getValues<MemorySpace::Device>(
+template void GridFuncVector<double, MemorySpace::Device>::getValues<double>(
     const int, double*) const;
 #endif
 
