@@ -44,29 +44,31 @@ double evalEntropy(ProjectedMatricesInterface* projmatrices,
 }
 
 template <class OrbitalsType, class MatrixType>
-DavidsonSolver<OrbitalsType, MatrixType>::DavidsonSolver(MPI_Comm comm,
-    std::ostream& os, Ions& ions, Hamiltonian<OrbitalsType>* hamiltonian,
-    Rho<OrbitalsType>* rho, Energy<OrbitalsType>* energy,
-    Electrostatic* electrostat, MGmol<OrbitalsType>* mgmol_strategy,
-    const int numst, const double kbT, const int nel,
-    const std::vector<std::vector<int>>& global_indexes)
-    : comm_(comm),
-      os_(os),
+DavidsonSolver<OrbitalsType, MatrixType>::DavidsonSolver(std::ostream& os,
+    Ions& ions, Hamiltonian<OrbitalsType>* hamiltonian, Rho<OrbitalsType>* rho,
+    Energy<OrbitalsType>* energy, Electrostatic* electrostat,
+    MGmol<OrbitalsType>* mgmol_strategy,
+    const std::vector<std::vector<int>>& global_indexes, const bool with_spin)
+    : os_(os),
       ions_(ions),
       hamiltonian_(hamiltonian),
       rho_(rho),
       energy_(energy),
       electrostat_(electrostat),
-      mgmol_strategy_(mgmol_strategy)
+      mgmol_strategy_(mgmol_strategy),
+      diel_control_(hamiltonian->potential(), electrostat, os, onpe0)
 {
+    Control& ct = *(Control::instance());
+
     history_length_ = 2;
     eks_history_.resize(history_length_, 100000.);
 
-    numst_ = numst;
+    numst_ = ct.numst;
     work2N_.reset(new MatrixType("work2N", 2 * numst_, 2 * numst_));
 
-    proj_mat2N_.reset(new ProjectedMatrices2N<MatrixType>(2 * numst_, false));
-    proj_mat2N_->setup(kbT, nel, global_indexes);
+    proj_mat2N_.reset(new ProjectedMatrices2N<MatrixType>(
+        2 * ct.numst, with_spin, ct.occ_width));
+    proj_mat2N_->setup(global_indexes);
 }
 
 template <class OrbitalsType, class MatrixType>
@@ -359,7 +361,8 @@ int DavidsonSolver<OrbitalsType, MatrixType>::solve(
 
     int retval = 1; // 0 -> converged
 
-    Control& ct = *(Control::instance());
+    Control& ct     = *(Control::instance());
+    MGmol_MPI& mmpi = *(MGmol_MPI::instance());
     if (onpe0 && ct.verbose > 1)
     {
         os_ << "---------------------------------------------------------------"
@@ -393,6 +396,9 @@ int DavidsonSolver<OrbitalsType, MatrixType>::solve(
 
     for (int outer_it = 0; outer_it <= ct.max_electronic_steps; outer_it++)
     {
+        // turn on PB solver if necessary
+        diel_control_.activate(outer_it, de_);
+
         ProjectedMatrices<MatrixType>* proj_matN
             = dynamic_cast<ProjectedMatrices<MatrixType>*>(
                 orbitals.getProjMatrices());
@@ -541,7 +547,7 @@ int DavidsonSolver<OrbitalsType, MatrixType>::solve(
             MatrixType delta_dm("delta_dm", 2 * numst_, 2 * numst_);
 
             buildTarget2N_MVP(h11, h12, h21, h22, s11, s22, target);
-            if (onpe0 && ct.verbose > 1 && (outer_it % 10 == 0))
+            if (mmpi.instancePE0() && ct.verbose > 1 && (outer_it % 10 == 0))
             {
                 proj_mat2N_->printEigenvalues(os_);
                 proj_mat2N_->printOccupations(os_);

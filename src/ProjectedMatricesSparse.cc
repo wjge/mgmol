@@ -42,7 +42,9 @@ Timer ProjectedMatricesSparse::eig_interval_tm_(
     "ProjectedMatrices::computeEigenInterval");
 
 ProjectedMatricesSparse::ProjectedMatricesSparse(const int ndim,
-    std::shared_ptr<LocalizationRegions> lrs, ClusterOrbitals* local_cluster)
+    const double width, std::shared_ptr<LocalizationRegions> lrs,
+    ClusterOrbitals* local_cluster)
+    : ProjectedMatricesInterface(false, width)
 {
     assert(lrs);
 
@@ -119,14 +121,14 @@ ProjectedMatricesSparse::~ProjectedMatricesSparse()
     clearData();
 }
 
-void ProjectedMatricesSparse::setup(const double kbt, const int nel,
+void ProjectedMatricesSparse::setup(
     const std::vector<std::vector<int>>& global_indexes)
 {
     // assert( (short)global_indexes.size()>0 );
     // assert( (short)global_indexes[0].size()>0 );
     Control& ct = *(Control::instance());
 
-    setupBase(kbt, nel, global_indexes.size(), global_indexes[0].size());
+    setupBase(global_indexes.size(), global_indexes[0].size());
 
     global_indexes_ = global_indexes;
 
@@ -704,7 +706,8 @@ void ProjectedMatricesSparse::computeGenEigenInterval(
     // residual
     std::vector<double> res(new_sol);
     // initial eigenvalue estimate (for shifted system)
-    double beta = MPdot(m, &sol[0], &new_sol[0]);
+    double beta
+        = LinearAlgebraUtils<MemorySpace::Host>::MPdot(m, &sol[0], &new_sol[0]);
 
     // compute first extent
     int iter1 = 0;
@@ -718,7 +721,8 @@ void ProjectedMatricesSparse::computeGenEigenInterval(
         // store matvec result appropriately scaled for later reuse
         work.clear();
         work.resize(m, 0.);
-        MPaxpy(m, gamma, &res[0], &work[0]);
+        LinearAlgebraUtils<MemorySpace::Host>::MPaxpy(
+            m, gamma, &res[0], &work[0]);
         // Compute residual: res = beta*S*x - mat*x
         (invS_->gramMat())->gemv(beta, sol, -1., res);
         // compute residual norm
@@ -732,7 +736,8 @@ void ProjectedMatricesSparse::computeGenEigenInterval(
         invS_->GramMatLSSolve(&work[0], &new_sol[0]);
 
         // compute 'shifted' eigenvalue
-        beta = MPdot(m, &sol[0], &new_sol[0]);
+        beta = LinearAlgebraUtils<MemorySpace::Host>::MPdot(
+            m, &sol[0], &new_sol[0]);
         // scale beta by gamma to account for normalizing sol
         beta *= gamma;
         // update solution data
@@ -757,7 +762,8 @@ void ProjectedMatricesSparse::computeGenEigenInterval(
     work  = new_sol;
     alpha = Tnrm2(m, &sol[0]);
     gamma = 1. / alpha;
-    beta  = MPdot(m, &sol[0], &new_sol[0]);
+    beta
+        = LinearAlgebraUtils<MemorySpace::Host>::MPdot(m, &sol[0], &new_sol[0]);
 
     // loop
     if (onpe0) std::cout << "e2:: ITER 0:: = " << beta << std::endl;
@@ -771,7 +777,8 @@ void ProjectedMatricesSparse::computeGenEigenInterval(
         // store matvec result appropriately scaled for later reuse
         work.clear();
         work.resize(m, 0.);
-        MPaxpy(m, gamma, &res[0], &work[0]);
+        LinearAlgebraUtils<MemorySpace::Host>::MPaxpy(
+            m, gamma, &res[0], &work[0]);
         // Compute residual: res = beta*S*x - mat*x
         (invS_->gramMat())->gemv(beta, sol, -1., res);
         // compute residual norm
@@ -785,7 +792,8 @@ void ProjectedMatricesSparse::computeGenEigenInterval(
         invS_->GramMatLSSolve(&work[0], &new_sol[0]);
 
         // compute 'shifted' eigenvalue
-        beta = MPdot(m, &sol[0], &new_sol[0]);
+        beta = LinearAlgebraUtils<MemorySpace::Host>::MPdot(
+            m, &sol[0], &new_sol[0]);
         // scale beta by gamma to account for normalizing sol
         beta *= gamma;
         // update solution data
