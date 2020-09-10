@@ -54,7 +54,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::allocate(const int n)
         class_storage_.back(), total_size_memory_, 0
     );
 
-    MemorySpace::copy_to_dev(memory_, total_size_memory_, class_storage_.get());
+    //MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, class_storage_.data());
 
     // jlf, 8/6/2020: one should be able to set this flag to true
     // but we may need to fix a few things for that to work
@@ -1052,7 +1052,7 @@ template <typename InputScalarType>
 void GridFuncVector<ScalarType, MemorySpaceType>::getValues(const int k, InputScalarType* vv) const
 {
     assert(k < static_cast<int>(functions_.size()));
-    functions_[k]->template getValues<InputScalarType>(vv);
+    functions_[k]->template getValues<InputScalarType, MemorySpaceType>(vv);
 }
 
 /*template <typename ScalarType, typename MemorySpaceType>
