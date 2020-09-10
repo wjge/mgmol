@@ -1771,6 +1771,8 @@ template void GridFuncVector<double, MemorySpace::Host>::getValues<float>(
 template void GridFuncVector<double, MemorySpace::Host>::getValues<double>(
     const int, double*) const;
 #ifdef HAVE_MAGMA
+template class GridFuncVector<double, MemorySpace::Device>;
+template class GridFuncVector<float, MemorySpace::Device>;
 template void GridFuncVector<float, MemorySpace::Device>::getValues<float>(
     const int, float*) const;
 template void GridFuncVector<float, MemorySpace::Device>::getValues<double>(

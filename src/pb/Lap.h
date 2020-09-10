@@ -22,12 +22,7 @@ template <class T>
 class Lap : public FDoper<T>
 {
 public:
-#ifdef HAVE_MAGMA
-    using memory_space_type = MemorySpace::Device;
-#else
-    using memory_space_type = MemorySpace::Host;
-#endif
-
+    using memory_space_type = typename FDoperInterface::memory_space_type;
 protected:
     std::string name_;
 
@@ -56,8 +51,7 @@ public:
         = 0;
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&, const double);
-    void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFunc<T, memory_space_type>&,
-        const double);
+    void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFunc<T>&, const double);
     void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&,
         GridFuncVector<T, memory_space_type>&, const double);
 
