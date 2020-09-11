@@ -50,11 +50,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::allocate(const int n)
         MemorySpace::Memory<ScalarType, MemorySpaceType>::allocate(total_size_memory_)
     );
 
-    MemorySpace::Memory<ScalarType, MemorySpaceType>::set(
-        class_storage_.back(), total_size_memory_, 0
-    );
-
-    //MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, class_storage_.data());
+    MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, *class_storage_.data());
 
     // jlf, 8/6/2020: one should be able to set this flag to true
     // but we may need to fix a few things for that to work
