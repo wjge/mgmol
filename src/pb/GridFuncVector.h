@@ -19,7 +19,7 @@
 
 namespace pb
 {
-template <typename ScalarType, typename MemorySpaceType = MemorySpace::Host>
+template <typename ScalarType, typename MemorySpaceType = MemorySpace::Device>
 class GridFuncVector
 {
     static Timer trade_bc_tm_;
@@ -37,6 +37,8 @@ class GridFuncVector
 
     // block of memory for device memory
     static std::vector<ScalarType*> class_storage_;
+
+    using MemoryST = MemorySpace::Memory<ScalarType, MemorySpaceType>;
 
     // global id for functions in each subdivision
     const std::vector<std::vector<int>>& gid_;

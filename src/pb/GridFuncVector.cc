@@ -45,12 +45,13 @@ void GridFuncVector<ScalarType, MemorySpaceType>::allocate(const int n)
     }
 
     //replace the above code later
+    
     const size_t total_size_memory_ = n * alloc_size * sizeof(ScalarType);
     class_storage_.push_back(
-        MemorySpace::Memory<ScalarType, MemorySpaceType>::allocate(total_size_memory_)
+        MemoryST::allocate(total_size_memory_)
     );
 
-    MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, *class_storage_.data());
+    //MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, *class_storage_.data());
 
     // jlf, 8/6/2020: one should be able to set this flag to true
     // but we may need to fix a few things for that to work
@@ -566,6 +567,44 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
         // first element will tell how many functions (data) are in buffer
         *buf1_ptr = (ScalarType)ncolors;
         buf1_ptr++;
+
+        std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf1_ptr_dev(
+            MemoryST::allocate(sizebuffer), MemoryST::free);
+
+        std::unique_ptr<ScalarType, void (*)(ScalarType*)> functions_dev(
+            MemoryST::allocate(sizebuffer), MemoryST::free);
+
+        //MemorySpace::copy_to_dev(class_storage_.get(), functions_dev);
+
+        ScalarType* buf1_alias = buf1_ptr_dev.get();
+
+        ScalarType* functions_alias = functions_dev.get();
+
+        //MemorySpace::assert_is_dev_ptr(buf1_alias);
+
+        auto nghosts = nghosts_;
+        auto incxy = incxy_;
+        auto incy = incy_;
+        auto size_per_function = grid_.sizeg() * sizeof(ScalarType);
+
+        MGMOL_PARALLEL_FOR_COLLAPSE(3, buf1_alias, functions_alias)
+        for (int color = begin_color; color < end_color; color++)
+        {
+            for (int j = 0; j < nghosts; j++)
+            {
+                for (int k = 0; k < zmax; k++)
+                {
+                    const ScalarType* __restrict__ uus = functions_alias + color * size_per_function + nghosts + incy * iinit;
+                    //*buf1_alias = (ScalarType)gid_[0][color]
+                    size_t index_buf1 = color * nghosts + zmax + j * incxy + k;
+                    buf1_alias[index_buf1] = uus[zmax - 1 - j + k * incy];
+                }
+            }
+        }
+
+        MemorySpace::copy_to_host(buf1_alias, sizebuffer, buf1_ptr);
+ 
+        //MGMOL_PARALLEL_FOR_COLLAPSE(2, buf1_alias)
         for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
@@ -582,6 +621,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
                 }
             }
         }
+
         grid_.mype_env().Isend(
             &comm_buf1[0], 1 + ncolors * up_down_size_, UP, &req_up_down_[0]);
     }
