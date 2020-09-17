@@ -22,6 +22,12 @@ int main(int argc, char* argv[])
 
     Timer time_mpitime(name3);
 
+#ifdef HAVE_MAGMA
+    magma_int_t magmalog;
+
+    magmalog = magma_init();
+#endif
+
     {
         //this is for weak scaling:
         const unsigned sizexyz = std::cbrt(size);
@@ -63,6 +69,10 @@ int main(int argc, char* argv[])
     }
 
     time_mpitime.print(std::cout);
+
+#ifdef HAVE_MAGMA
+    magmalog = magma_finalize();
+#endif
 
     mpirc = MPI_Finalize();
 
