@@ -569,10 +569,10 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
         buf1_ptr++;
 
         std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf1_ptr_dev(
-            MemoryST::allocate(sizebuffer), MemoryST::free);
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
 
         std::unique_ptr<ScalarType, void (*)(ScalarType*)> functions_dev(
-            MemoryST::allocate(sizebuffer), MemoryST::free);
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
 
         //MemorySpace::copy_to_dev(class_storage_.get(), functions_dev);
 
@@ -592,10 +592,10 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
         {
             for (int j = 0; j < nghosts; j++)
             {
-                for (int k = 0; k < zmax; k++)
+                for (int k = 0; k < incxy; k++)
                 {
                     const ScalarType* __restrict__ uus = functions_alias + color * size_per_function + nghosts + incy * iinit;
-                    //*buf1_alias = (ScalarType)gid_[0][color]
+                    *(buf1_alias+color+nghosts*incxy) = (ScalarType)color;
                     size_t index_buf1 = color * nghosts + zmax + j * incxy + k;
                     buf1_alias[index_buf1] = uus[zmax - 1 - j + k * incy];
                 }
@@ -604,7 +604,6 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
 
         MemorySpace::copy_to_host(buf1_alias, sizebuffer, buf1_ptr);
  
-        //MGMOL_PARALLEL_FOR_COLLAPSE(2, buf1_alias)
         for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
