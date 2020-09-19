@@ -36,7 +36,8 @@ class GridFuncVector
     std::unique_ptr<ScalarType> memory_;
 
     // block of memory for device memory
-    static std::vector<ScalarType*> class_storage_;
+    //static std::vector<ScalarType*> class_storage_;
+    std::unique_ptr<ScalarType, void (*)(ScalarType*)> functions_dev_;
 
     using MemoryST = MemorySpace::Memory<ScalarType, MemorySpaceType>;
 
@@ -120,7 +121,8 @@ public:
           grid_(my_grid),
           comm_(my_grid.mype_env().comm()),
           skinny_stencil_(skinny_stencil),
-          nfunc4buffers_(0)
+          nfunc4buffers_(0),
+          functions_dev_(MemoryST::allocate(gid[0].size()*my_grid.sizeg()), MemoryST::free)
     {
         bc_[0] = px;
         bc_[1] = py;
@@ -142,11 +144,11 @@ public:
             delete functions_[i];
         }
         
-        for (auto it: class_storage_)
+        /*for (auto it: class_storage_)
         {
             //delete[] it; 
             MemorySpace::Memory<ScalarType, MemorySpaceType>::free(it);
-        }
+        }*/
     }
 
     void setup();
@@ -220,9 +222,9 @@ public:
     }
 };
 
-template <typename ScalarType, typename MemorySpaceType>
-std::vector<ScalarType*>
-    GridFuncVector<ScalarType, MemorySpaceType>::class_storage_;
+//template <typename ScalarType, typename MemorySpaceType>
+//std::vector<ScalarType*>
+//    GridFuncVector<ScalarType, MemorySpaceType>::class_storage_;
 
 template <typename ScalarType, typename MemorySpaceType>
 Timer GridFuncVector<ScalarType, MemorySpaceType>::trade_bc_tm_("GridFuncVector::trade_bc");
