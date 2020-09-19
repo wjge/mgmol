@@ -17,6 +17,7 @@
 
 namespace pb
 {
+<<<<<<< HEAD
 template <typename ScalarType, typename MemorySpaceType>
 std::vector<std::vector<ScalarType>> GridFuncVector<ScalarType, MemorySpaceType>::comm_buf1_;
 template <typename ScalarType, typename MemorySpaceType>
@@ -28,6 +29,10 @@ std::vector<std::vector<ScalarType>> GridFuncVector<ScalarType, MemorySpaceType>
 
 template <typename ScalarType, typename MemorySpaceType>
 void GridFuncVector<ScalarType, MemorySpaceType>::allocate(const int n)
+=======
+template <typename ScalarType>
+void GridFuncVector<ScalarType>::allocate(const int n)
+>>>>>>> release
 {
     functions_.resize(n);
 
@@ -256,9 +261,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::wait_up_down()
 template <typename ScalarType, typename MemorySpaceType>
 void GridFuncVector<ScalarType, MemorySpaceType>::allocate_buffers(const int nfunc)
 {
-    static int last_nfunc = 0;
-
-    if (nfunc <= last_nfunc) return;
+    if (nfunc <= nfunc4buffers_) return;
 
     if (grid_.mype_env().n_mpi_tasks() > 1)
     {
@@ -281,7 +284,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::allocate_buffers(const int nfu
             comm_buf4_[i].resize(size_max);
         }
 
-        last_nfunc = nfunc;
+        nfunc4buffers_ = nfunc;
     }
 }
 template <typename ScalarType, typename MemorySpaceType>
