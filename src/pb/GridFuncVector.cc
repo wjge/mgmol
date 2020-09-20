@@ -37,14 +37,14 @@ void GridFuncVector<ScalarType, MemorySpaceType>::allocate(const int n)
 
     //replace the above code later
     
-    const size_t total_size_memory_ = n * alloc_size * sizeof(ScalarType);
+    //const size_t total_size_memory_ = n * alloc_size;
     /*class_storage_.push_back(
         MemoryST::allocate(total_size_memory_)
     );*/
 
     //MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, *class_storage_.data());
 
-    MemorySpace::copy_to_dev(memory_.get(), total_size_memory_, functions_dev_.get());
+//    MemorySpace::copy_to_dev(memory_.get(), n * alloc_size, functions_dev_.get());
 
     // jlf, 8/6/2020: one should be able to set this flag to true
     // but we may need to fix a few things for that to work
@@ -557,7 +557,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
         ScalarType* buf1_ptr = &comm_buf1[0];
         // first element will tell how many functions (data) are in buffer
         *buf1_ptr = (ScalarType)ncolors;
-        buf1_ptr++;
+        //buf1_ptr++;
 
         std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf1_ptr_dev(
             MemoryST::allocate(sizebuffer), MemoryST::free);
@@ -576,25 +576,48 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateUpDownComm(
         auto nghosts = nghosts_;
         auto incxy = incxy_;
         auto incy = incy_;
-        auto size_per_function = grid_.sizeg() * sizeof(ScalarType);
+        auto size_per_function = grid_.sizeg();
 
         MGMOL_PARALLEL_FOR_COLLAPSE(3, buf1_alias, functions_alias)
         for (int color = begin_color; color < end_color; color++)
         {
-            for (int j = 0; j < nghosts; j++)
+            for (int k = 0; k < incxy; k++)
             {
-                for (int k = 0; k < incxy; k++)
+                for (int j = 0; j < nghosts; j++)
                 {
                     const ScalarType* __restrict__ uus = functions_alias + color * size_per_function + nghosts + incy * iinit;
-                    *(buf1_alias+color+nghosts*incxy) = (ScalarType)color;
-                    size_t index_buf1 = color * nghosts + zmax + j * incxy + k;
+                    //the first element stores the number of functions
+                    *buf1_alias = ncolors;
+                    *(buf1_alias + 1 + color*(nghosts * incxy + 1)) = (ScalarType)color;
+                    size_t index_buf1 = 1 + color * (incxy * nghosts + 1) + 1 + j * incxy + k;
                     buf1_alias[index_buf1] = uus[zmax - 1 - j + k * incy];
                 }
             }
         }
 
         MemorySpace::copy_to_host(buf1_alias, sizebuffer, buf1_ptr);
- 
+        
+/*        for (int color = begin_color; color < end_color; color++)
+        {
+            for (short iloc = 0; iloc < nsubdivx_; iloc++)
+            {
+                const ScalarType* const uus
+                    = functions_[color]->uu(nghosts_ + incy_ * iinit);
+                buf1_ptr[color * (incxy * nghosts+1)] = (ScalarType)gid_[iloc][color];
+                //buf1_ptr++;
+                for (int j = 0; j < nghosts_; j++)
+                {
+                    for (int k = 0; k < incxy; k++)
+                    {
+                        size_t index_buf1 = color * (incxy * nghosts + 1) + 1 + j * incxy + k;
+                        buf1_ptr[index_buf1] = uus[zmax - 1 - j + k * incy];
+                        //buf1_ptr++;
+                    }
+                }
+            }
+        }
+*/
+
         /*for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)

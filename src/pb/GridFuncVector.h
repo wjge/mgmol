@@ -162,6 +162,13 @@ public:
         functions_[i]->assign(v, dis);
         updated_boundaries_ = false;
     }
+
+    //copy the host data to device
+    void copyHtoD(int size)
+    {
+        MemorySpace::copy_to_dev(memory_.get(), size, functions_dev_.get());
+    }
+
     GridFunc<ScalarType>& getGridFunc(const int k)
     {
         assert(k < static_cast<int>(functions_.size()));
