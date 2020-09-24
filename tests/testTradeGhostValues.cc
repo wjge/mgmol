@@ -20,14 +20,14 @@ TEST_CASE("Trade ghost values", "[trade]")
     const double lattice[3] = { ll, ll, ll };
     const short nghosts     = 1;
 
-    const int nfunc = 10;
+    const int nfunc = 1;
 
     MGmol_MPI::setup(MPI_COMM_WORLD, std::cout);
 
     // test for several different number of mesh points
     // in z-direction to generate different communications
     // patterns
-    for (unsigned nzg = 20; nzg <= 80; nzg *= 2)
+    for (unsigned nzg = 40; nzg <= 40; nzg *= 2)
     {
         const unsigned ngpts[3] = { 32, 24, nzg };
         std::cout << "Mesh " << ngpts[0] << " x " << ngpts[1] << " x "
