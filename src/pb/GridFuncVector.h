@@ -167,6 +167,20 @@ public:
     void copyHtoD(int size)
     {
         MemorySpace::copy_to_dev(memory_.get(), size, functions_dev_.get());
+
+/*        std::unique_ptr<ScalarType[]> functions_host{new ScalarType[size]};
+       
+        MemorySpace::copy_to_host(functions_dev_.get(), size, functions_host.get()); 
+
+        ScalarType* memory_alias = memory_.get();
+
+        for (int i = 0; i < size; i++)
+        {
+            if(memory_alias[i]!=functions_host.get()[i])   
+                printf("oops index=%d, uus_host=%f, uus_device=%f. \n", i, memory_alias[i], functions_host.get()[i]);
+        }
+*/
+
     }
 
     GridFunc<ScalarType>& getGridFunc(const int k)
