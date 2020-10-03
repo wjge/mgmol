@@ -320,7 +320,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
             {
                 for (int i = imin; i < imin + iinc; i += incx)
                 {
-                    for (int k = 0; k < sdimz; k++)
+                    for (int k = 0; k < dimz; k++)
                     {
                         const ScalarType* __restrict__ uus 
                             = functions_alias + color * size_per_function + nghosts * (incy + 1);
@@ -380,7 +380,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
             {
                 for (int i = imin; i < imin + iinc; i += incx)
                 {
-                    for (int k = 0; k < sdimz; k++)
+                    for (int k = 0; k < dimz; k++)
                     {
                         const ScalarType* __restrict__ uus 
                             = functions_alias + color * size_per_function + nghosts + ymax;
@@ -941,6 +941,14 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateEastWestComm(
     if (west_)
         grid_.mype_env().Irecv(
             &comm_buf4[0], sizebuffer, WEST, &req_east_west_[2]);
+
+    auto size_per_function = grid_.sizeg();
+    auto east_west_size = east_west_size_;
+
+    MemorySpace::copy_to_dev(memory_.get(), size_per_function*ncolors, functions_dev_.get());
+ 
+    ScalarType* functions_alias = functions_dev_.get();
+
     if (west_)
     {
         ScalarType* buf1_ptr = &comm_buf1[0];
@@ -948,7 +956,29 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateEastWestComm(
         *buf1_ptr = (ScalarType)ncolors;
         buf1_ptr++;
 
-        const int initu = east_west_size_;
+        std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf1_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+        ScalarType* buf1_alias = buf1_ptr_dev.get();
+
+        MemorySpace::assert_is_dev_ptr(buf1_alias);
+
+        MGMOL_PARALLEL_FOR_COLLAPSE(2, buf1_alias, functions_alias)
+        for (int color = begin_color; color < end_color; color++)
+        {
+            for (int k = 0; k < east_west_size; k++)
+            {
+                    const ScalarType* __restrict__ uus 
+                        = functions_alias + color * size_per_function + east_west_size;
+                    *(buf1_alias + color*(east_west_size + 1)) = (ScalarType)color;
+                    size_t index_buf1 = color * (east_west_size + 1) + 1 + k;
+                    buf1_alias[index_buf1] = uus[k];
+            }
+        }
+
+        MemorySpace::copy_to_host(buf1_alias, sizebuffer-1, buf1_ptr);
+
+        /*const int initu = east_west_size_;
         for (int color = begin_color; color < end_color; color++)
         {
             *buf1_ptr = (ScalarType)gid_[0][color];
@@ -956,7 +986,8 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateEastWestComm(
             const ScalarType* const pu = functions_[color]->uu(initu);
             memcpy(buf1_ptr, pu, east_west_size_data);
             buf1_ptr += east_west_size_;
-        }
+        }*/
+
         grid_.mype_env().Isend(
             &comm_buf1[0], sizebuffer, WEST, &req_east_west_[1]);
     }
@@ -967,7 +998,29 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateEastWestComm(
         *buf2_ptr = (ScalarType)ncolors;
         buf2_ptr++;
 
-        const int initu = xmax;
+        std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf2_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+        ScalarType* buf2_alias = buf2_ptr_dev.get();
+
+        MemorySpace::assert_is_dev_ptr(buf2_alias);
+
+        MGMOL_PARALLEL_FOR_COLLAPSE(2, buf2_alias, functions_alias)
+        for (int color = begin_color; color < end_color; color++)
+        {
+            for (int k = 0; k < east_west_size; k++)
+            {
+                    const ScalarType* __restrict__ uus 
+                        = functions_alias + color * size_per_function + xmax;
+                    *(buf2_alias + color*(east_west_size + 1)) = (ScalarType)color;
+                    size_t index_buf2 = color * (east_west_size + 1) + 1 + k;
+                    buf2_alias[index_buf2] = uus[k];
+            }
+        }
+
+        MemorySpace::copy_to_host(buf2_alias, sizebuffer-1, buf2_ptr);
+
+        /*const int initu = xmax;
         for (int color = begin_color; color < end_color; color++)
         {
             *buf2_ptr = (ScalarType)gid_[nsubdivx_ - 1][color];
@@ -975,7 +1028,8 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateEastWestComm(
             const ScalarType* const pu = functions_[color]->uu(initu);
             memcpy(buf2_ptr, pu, east_west_size_data);
             buf2_ptr += east_west_size_;
-        }
+        }*/
+
         grid_.mype_env().Isend(
             &comm_buf2[0], sizebuffer, EAST, &req_east_west_[0]);
     }
