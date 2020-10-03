@@ -292,10 +292,10 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
 
     auto nghosts = nghosts_;
     auto incx = incx_;
+    auto dimx = dimx_;
     auto incy = incy_;
+    auto dimz = dimz_;
     auto size_per_function = grid_.sizeg();
-
-    MemorySpace::copy_to_dev(memory_.get(), size_per_function*ncolors, functions_dev_.get());
  
     ScalarType* functions_alias = functions_dev_.get();
 
@@ -313,29 +313,31 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
 
         MemorySpace::assert_is_dev_ptr(buf2_alias);
 
-       /* MGMOL_PARALLEL_FOR_COLLAPSE(2, buf1_alias, functions_alias)
+        MGMOL_PARALLEL_FOR_COLLAPSE(2, buf2_alias, functions_alias)
         for (int color = begin_color; color < end_color; color++)
         {
             for (int j = 0; j < jmax; j += incy)
             {
                 for (int i = imin; i < imin + iinc; i += incx)
                 {
-                    for (int k; k < sdimz; k++)
+                    for (int k = 0; k < sdimz; k++)
                     {
                         const ScalarType* __restrict__ uus 
                             = functions_alias + color * size_per_function + nghosts * (incy + 1);
-                        *(buf1_alias + color*(nghosts * incx * incy + 1)) = (ScalarType)color;
-                        size_t index_buf2 = color * (incxy * nghosts + 1) + 1 + i * incx + j * incy + k;
+                        *(buf2_alias + color*(nghosts * dimx * dimz + 1)) = (ScalarType)color;
+                        size_t index_buf2 = color * (nghosts * dimx * dimz + 1) + 1 
+                                          + j/incy *(imin + iinc)/incx * dimz
+                                          + (i-imin)/incx * dimz + k;
                         buf2_alias[index_buf2] = uus[ i + j + k];
+                    }
                 }
             }
         }
 
         MemorySpace::copy_to_host(buf2_alias, sizebuffer-1, buf2_ptr);
-*/
 
         // pack data
-        for (int color = begin_color; color < end_color; color++)
+        /*for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
             {
@@ -351,7 +353,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
                         buf2_ptr += dimz_;
                     }
             }
-        }
+        }*/
 
         grid_.mype_env().Isend(&comm_buf2[0], 1 + ncolors * south_north_size_,
             SOUTH, &req_north_south_[2]);
@@ -363,8 +365,39 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
         // first element will tell how many functions (data) are in buffer
         *buf1_ptr = (ScalarType)ncolors;
         buf1_ptr++;
-        // pack data
+
+        std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf1_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+        ScalarType* buf1_alias = buf1_ptr_dev.get();
+
+        MemorySpace::assert_is_dev_ptr(buf1_alias);
+
+        MGMOL_PARALLEL_FOR_COLLAPSE(2, buf1_alias, functions_alias)
         for (int color = begin_color; color < end_color; color++)
+        {
+            for (int j = 0; j < jmax; j += incy)
+            {
+                for (int i = imin; i < imin + iinc; i += incx)
+                {
+                    for (int k = 0; k < sdimz; k++)
+                    {
+                        const ScalarType* __restrict__ uus 
+                            = functions_alias + color * size_per_function + nghosts + ymax;
+                        *(buf1_alias + color*(nghosts * dimx * dimz + 1)) = (ScalarType)color;
+                        size_t index_buf1 = color * (nghosts * dimx * dimz + 1) + 1 
+                                          + j/incy *(imin + iinc)/incx * dimz
+                                          + (i-imin)/incx * dimz + k;
+                        buf1_alias[index_buf1] = uus[ i + j + k];
+                    }
+                }
+            }
+        }
+
+        MemorySpace::copy_to_host(buf1_alias, sizebuffer-1, buf1_ptr);
+
+        // pack data
+        /*for (int color = begin_color; color < end_color; color++)
         {
             for (short iloc = 0; iloc < nsubdivx_; iloc++)
             {
@@ -379,7 +412,8 @@ void GridFuncVector<ScalarType, MemorySpaceType>::initiateNorthSouthComm(
                         buf1_ptr += dimz_;
                     }
             }
-        }
+        }*/
+
         grid_.mype_env().Isend(&comm_buf1[0], 1 + ncolors * south_north_size_,
             NORTH, &req_north_south_[0]);
     }
