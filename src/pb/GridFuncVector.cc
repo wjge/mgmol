@@ -426,12 +426,24 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
     std::vector<ScalarType>& comm_buf3(comm_buf3_[1]);
     std::vector<ScalarType>& comm_buf4(comm_buf4_[1]);
 
+    auto sizebuffer = comm_buf3.size();
+
+    int begin_color = 0;
+    int end_color = nfunc_;
+    auto incy = incy_;
+    auto incx = incx_;
+    auto dimx = dimx_;
+    auto dimz = dimz_;
+    auto nghosts = nghosts_;
+    auto size_per_function = grid_.sizeg();
+
+    ScalarType* functions_alias = functions_dev_.get();
+
     const int ymax     = dimy_ * grid_.inc(1);
     const size_t sdimz = dimz_ * sizeof(ScalarType);
 
     if (grid_.mype_env().n_mpi_task(1) > 1)
     {
-
         const int imin = nghosts_ * incx_;
         const int iinc = incx_ * dimx_ / nsubdivx_;
         const int jmax = nghosts_ * incy_;
@@ -442,7 +454,39 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
-            for (int k = 0; k < nremote_func; k++)
+            std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf4_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+            ScalarType* buf4_alias = buf4_ptr_dev.get();
+
+            MemorySpace::assert_is_dev_ptr(buf4_alias);
+
+            MemorySpace::copy_to_dev(buf4_ptr, sizebuffer-1, buf4_alias);
+
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, buf4_alias, functions_alias)
+            for (int color = begin_color; color < end_color; color++)
+            {
+                for (int j = 0; j < jmax; j += incy)
+                {
+                    for (int i = imin; i < imin + iinc; i += incx)
+                    {
+                        for (int k = 0; k < dimz; k++)
+                        {
+                            ScalarType* uus 
+                                = functions_alias + color * size_per_function + nghosts *(incy + 1) + ymax;
+                            //*(buf1_alias + color*(nghosts * dimx * dimz + 1)) = (ScalarType)color;
+                            size_t index_buf4 = color * (nghosts * dimx * dimz + 1) + 1 
+                                              + j/incy *(imin + iinc)/incx * dimz
+                                              + (i-imin)/incx * dimz + k;
+                            uus[i + j + k] = buf4_alias[index_buf4];
+                        }
+                    }
+                }
+            }
+
+            MemorySpace::copy_to_host(functions_alias, size_per_function*end_color, memory_.get()); 
+
+            /*for (int k = 0; k < nremote_func; k++)
             {
                 for (short iloc = 0; iloc < nsubdivx_; iloc++)
                 {
@@ -499,6 +543,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
             }
             assert((buf4_ptr - &comm_buf4[0])
                    <= static_cast<int>(comm_buf4.size()));
+            */
         }
 
         if (south_)
@@ -507,7 +552,39 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
-            for (int k = 0; k < nremote_func; k++)
+            std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf3_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+            ScalarType* buf3_alias = buf3_ptr_dev.get();
+
+            MemorySpace::assert_is_dev_ptr(buf3_alias);
+
+            MemorySpace::copy_to_dev(buf3_ptr, sizebuffer-1, buf3_alias);
+
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, buf3_alias, functions_alias)
+            for (int color = begin_color; color < end_color; color++)
+            {
+                for (int j = 0; j < jmax; j += incy)
+                {
+                    for (int i = imin; i < imin + iinc; i += incx)
+                    {
+                        for (int k = 0; k < dimz; k++)
+                        {
+                            ScalarType* uus 
+                                = functions_alias + color * size_per_function + nghosts;
+                            //*(buf1_alias + color*(nghosts * dimx * dimz + 1)) = (ScalarType)color;
+                            size_t index_buf3 = color * (nghosts * dimx * dimz + 1) + 1 
+                                              + j/incy *(imin + iinc)/incx * dimz
+                                              + (i-imin)/incx * dimz + k;
+                            uus[i + j + k] = buf3_alias[index_buf3];
+                        }
+                    }
+                }
+            }
+
+            MemorySpace::copy_to_host(functions_alias, size_per_function*end_color, memory_.get()); 
+
+/*            for (int k = 0; k < nremote_func; k++)
             {
                 for (short iloc = 0; iloc < nsubdivx_; iloc++)
                 {
@@ -561,7 +638,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
                 }
             }
             assert((buf3_ptr - &comm_buf3[0])
-                   <= static_cast<int>(comm_buf3.size()));
+                   <= static_cast<int>(comm_buf3.size()));*/
         }
     }
     else
