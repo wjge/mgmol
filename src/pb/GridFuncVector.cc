@@ -864,11 +864,21 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
     std::vector<ScalarType>& comm_buf3(comm_buf3_[2]);
     std::vector<ScalarType>& comm_buf4(comm_buf4_[2]);
 
+    auto sizebuffer = comm_buf3.size();
+
+    int begin_color = 0;
+    int end_color = nfunc_;
+    auto incy = incy_;
+    auto incxy = incxy_;
+    auto nghosts = nghosts_;
+    auto size_per_function = grid_.sizeg();
+
+    ScalarType* functions_alias = functions_dev_.get();
+
     const int zmax = dimz_;
 
     if (grid_.mype_env().n_mpi_task(2) > 1)
     {
-
         int iinit      = (dimy_ + 2 * nghosts_) * nghosts_;
         const int ione = 1;
         if (down_)
@@ -877,7 +887,34 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
             const int nremote_func = (int)(*buf3_ptr);
             buf3_ptr++;
 
-            for (int k = 0; k < nremote_func; k++)
+            std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf3_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+            ScalarType* buf3_alias = buf3_ptr_dev.get();
+
+            MemorySpace::assert_is_dev_ptr(buf3_alias);
+
+            MemorySpace::copy_to_dev(buf3_ptr, sizebuffer-1, buf3_alias);
+
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, buf3_alias, functions_alias)
+            for (int color = begin_color; color < end_color; color++)
+            {
+                for (int k = 0; k < incxy; k++)
+                {
+                    for (int j = 0; j < nghosts; j++)
+                    {
+                        ScalarType* uus 
+                        = functions_alias + color * size_per_function + nghosts - 1 - j;
+                        //*(buf3_alias + color*(nghosts * incxy + 1)) = (ScalarType)color;
+                        size_t index_buf3 = color * (incxy * nghosts + 1) + 1 + j * incxy + k;
+                        uus[incy * iinit + k * incy] = buf3_alias[index_buf3];
+                    }
+                }
+            }
+
+            MemorySpace::copy_to_host(functions_alias, size_per_function*end_color, memory_.get()); 
+
+            /*for (int k = 0; k < nremote_func; k++)
             {
                 for (short iloc = 0; iloc < nsubdivx_; iloc++)
                 {
@@ -918,7 +955,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
                         buf3_ptr += incxy_ * nghosts_;
                     }
                 }
-            }
+            }*/
         }
         if (up_)
         {
@@ -926,7 +963,34 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
             const int nremote_func = (int)(*buf4_ptr);
             buf4_ptr++;
 
-            for (int k = 0; k < nremote_func; k++)
+            std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf4_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+            ScalarType* buf4_alias = buf4_ptr_dev.get();
+
+            MemorySpace::assert_is_dev_ptr(buf4_alias);
+
+            MemorySpace::copy_to_dev(buf4_ptr, sizebuffer-1, buf4_alias);
+
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, buf4_alias, functions_alias)
+            for (int color = begin_color; color < end_color; color++)
+            {
+                for (int k = 0; k < incxy; k++)
+                {
+                    for (int j = 0; j < nghosts; j++)
+                    {
+                        ScalarType* uus 
+                        = functions_alias + color * size_per_function + nghosts + zmax + j;
+                        //*(buf3_alias + color*(nghosts * incxy + 1)) = (ScalarType)color;
+                        size_t index_buf4 = color * (incxy * nghosts + 1) + 1 + j * incxy + k;
+                        uus[incy * iinit + k * incy] = buf4_alias[index_buf4];
+                    }
+                }
+            }
+
+            MemorySpace::copy_to_host(functions_alias, size_per_function*end_color, memory_.get()); 
+
+/*            for (int k = 0; k < nremote_func; k++)
             {
                 for (short iloc = 0; iloc < nsubdivx_; iloc++)
                 {
@@ -967,7 +1031,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
                         buf4_ptr += incxy_ * nghosts_;
                     }
                 }
-            }
+            }*/
         }
     }
     else
@@ -1119,6 +1183,15 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
     std::vector<ScalarType>& comm_buf3(comm_buf3_[0]);
     std::vector<ScalarType>& comm_buf4(comm_buf4_[0]);
 
+    auto sizebuffer = comm_buf3.size();
+
+    int begin_color = 0;
+    int end_color = nfunc_;
+    auto east_west_size = east_west_size_;
+    auto size_per_function = grid_.sizeg();
+
+    ScalarType* functions_alias = functions_dev_.get();
+
     const int xmax = dimx_ * grid_.inc(0);
 
     if (grid_.mype_env().n_mpi_task(0) > 1)
@@ -1132,7 +1205,32 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
             buf3_ptr++;
 
             const int initu = xmax + east_west_size_;
-            for (int k = 0; k < nremote_func; k++)
+
+            std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf3_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+            ScalarType* buf3_alias = buf3_ptr_dev.get();
+
+            MemorySpace::assert_is_dev_ptr(buf3_alias);
+
+            MemorySpace::copy_to_dev(buf3_ptr, sizebuffer-1, buf3_alias);
+
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, buf3_alias, functions_alias)
+            for (int color = begin_color; color < end_color; color++)
+            {
+                for (int k = 0; k < east_west_size; k++)
+                {
+                    ScalarType* uus 
+                        = functions_alias + color * size_per_function + initu;
+                    //*(buf2_alias + color*(east_west_size + 1)) = (ScalarType)color;
+                    size_t index_buf3 = color * (east_west_size + 1) + 1 + k;
+                    uus[k] = buf3_alias[index_buf3];
+                }
+            }
+
+            MemorySpace::copy_to_host(functions_alias, size_per_function*end_color, memory_.get()); 
+
+           /* for (int k = 0; k < nremote_func; k++)
             {
                 int gid = (int)(*buf3_ptr);
                 buf3_ptr++;
@@ -1151,7 +1249,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
                     }
                 }
                 buf3_ptr += east_west_size_;
-            }
+            }*/
         }
         if (west_)
         {
@@ -1160,7 +1258,32 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
             buf4_ptr++;
 
             const int initu = 0;
-            for (int k = 0; k < nremote_func; k++)
+
+            std::unique_ptr<ScalarType, void (*)(ScalarType*)> buf4_ptr_dev(
+            MemoryST::allocate(sizebuffer-1), MemoryST::free);
+
+            ScalarType* buf4_alias = buf4_ptr_dev.get();
+
+            MemorySpace::assert_is_dev_ptr(buf4_alias);
+
+            MemorySpace::copy_to_dev(buf4_ptr, sizebuffer-1, buf4_alias);
+
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, buf4_alias, functions_alias)
+            for (int color = begin_color; color < end_color; color++)
+            {
+                for (int k = 0; k < east_west_size; k++)
+                {
+                    ScalarType* uus 
+                        = functions_alias + color * size_per_function + initu;
+                    //*(buf2_alias + color*(east_west_size + 1)) = (ScalarType)color;
+                    size_t index_buf4 = color * (east_west_size + 1) + 1 + k;
+                    uus[k] = buf4_alias[index_buf4];
+                }
+            }
+
+            MemorySpace::copy_to_host(functions_alias, size_per_function*end_color, memory_.get()); 
+
+/*            for (int k = 0; k < nremote_func; k++)
             {
                 int gid = (int)(*buf4_ptr);
                 buf4_ptr++;
@@ -1179,7 +1302,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
                     }
                 }
                 buf4_ptr += east_west_size_;
-            }
+            }*/
         }
     }
     else
