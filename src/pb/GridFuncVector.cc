@@ -434,8 +434,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
 #ifdef HAVE_OPENMP_OFFLOAD
     auto sizebuffer = comm_buf3.size();
 
-    int begin_color = 0;
-    int end_color = nfunc_;
+    int nfunc = nfunc_;
     auto incy = incy_;
     auto incx = incx_;
     auto dimx = dimx_;
@@ -472,7 +471,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
             MemorySpace::copy_to_dev(buf4_ptr, sizebuffer-1, buf4_alias);
 
             MGMOL_PARALLEL_FOR_COLLAPSE(2, buf4_alias, functions_alias)
-            for (int color = begin_color; color < end_color; color++)
+            for (int color = 0; color < nfunc; color++)
             {
                 for (int j = 0; j < jmax; j += incy)
                 {
@@ -569,7 +568,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
             MemorySpace::copy_to_dev(buf3_ptr, sizebuffer-1, buf3_alias);
 
             MGMOL_PARALLEL_FOR_COLLAPSE(2, buf3_alias, functions_alias)
-            for (int color = begin_color; color < end_color; color++)
+            for (int color = 0; color < nfunc; color++)
             {
                 for (int j = 0; j < jmax; j += incy)
                 {
@@ -651,7 +650,27 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
     { // grid_.mype_env().n_mpi_task(1)==1
         if (bc_[1] == 1)
         {
-
+#ifdef HAVE_OPENMP_OFFLOAD
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, functions_alias)
+            for (int color = 0; color < nfunc; color++)
+            {
+                for (int j = 0; j < nghosts * incy; j += incy)
+                {
+                    for (int i = nghosts * incx; i < (dimx + nghosts) * incx; i += incx)
+                    {
+                        for (int k = 0; k < sdimz; k++)
+                        {
+                            ScalarType* pu 
+                                = functions_alias + color * size_per_function;
+                            size_t index1 = i + nghosts + j + k;
+                            size_t index2 = i + nghosts * (incy + 1) + j + k;
+                            pu[index1] = pu[index1 + ymax];
+                            pu[index2 + ymax] = pu[index2];
+                        }
+                    }
+                }
+            }
+#else
             // only for i already initialized
             for (int k = 0; k < nfunc_; k++)
             {
@@ -666,6 +685,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishNorthSouthComm()
                             &pu[i + nghosts_ * (incy_ + 1) + j], sdimz);
                     }
             }
+#endif
         }
     }
     finishExchangeNorthSouth_tm_.stop();
@@ -829,12 +849,12 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
 #ifdef HAVE_OPENMP_OFFLOAD
     auto sizebuffer = comm_buf3.size();
 
-    int begin_color = 0;
-    int end_color = nfunc_;
+    int nfunc = nfunc_;
     auto incy = incy_;
     auto incxy = incxy_;
     auto nghosts = nghosts_;
     auto size_per_function = grid_.sizeg();
+    auto dimxy = dimxy_;
 
     ScalarType* functions_alias = functions_dev_.get();
 #endif
@@ -862,7 +882,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
             MemorySpace::copy_to_dev(buf3_ptr, sizebuffer-1, buf3_alias);
 
             MGMOL_PARALLEL_FOR_COLLAPSE(2, buf3_alias, functions_alias)
-            for (int color = begin_color; color < end_color; color++)
+            for (int color = 0; color < nfunc; color++)
             {
                 for (int k = 0; k < incxy; k++)
                 {
@@ -939,7 +959,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
             MemorySpace::copy_to_dev(buf4_ptr, sizebuffer-1, buf4_alias);
 
             MGMOL_PARALLEL_FOR_COLLAPSE(2, buf4_alias, functions_alias)
-            for (int color = begin_color; color < end_color; color++)
+            for (int color = 0; color < nfunc; color++)
             {
                 for (int k = 0; k < incxy; k++)
                 {
@@ -1001,11 +1021,27 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
     }
     else
     {
-
         if (bc_[2] == 1) /* grid_.mype_env().n_mpi_task(2)==1 */
         {
             int iinit = (dimy_ + 2 * nghosts_) * nghosts_;
-
+#ifdef HAVE_OPENMP_OFFLOAD
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, functions_alias)
+            for (int color = 0; color < nfunc; color++)
+            {
+                for (int j = 0; j < nghosts; j++)
+                {
+                        for (int k = 0; k < dimxy; k++)
+                        {
+                            ScalarType* pu 
+                                = functions_alias + color * size_per_function;
+                            size_t index1 = nghosts - j + iinit * incy - 1 + k * incy;
+                            size_t index2 = nghosts + j + iinit * incy + k * incy;
+                            pu[index1] = pu[index1 + zmax];
+                            pu[index2 + zmax] = pu[index2];
+                        }
+                }
+            }
+#else
             for (int k = 0; k < nfunc_; k++)
             {
                 ScalarType* pu = functions_[k]->uu();
@@ -1020,6 +1056,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishUpDownComm()
                         &pu[nghosts_ + j + iinit * incy_ + zmax], &incy_);
                 }
             }
+#endif
         }
     }
 
@@ -1154,8 +1191,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
 #ifdef HAVE_OPENMP_OFFLOAD
     auto sizebuffer = comm_buf3.size();
 
-    int begin_color = 0;
-    int end_color = nfunc_;
+    auto nfunc = nfunc_;
     auto east_west_size = east_west_size_;
     auto size_per_function = grid_.sizeg();
 
@@ -1187,7 +1223,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
             MemorySpace::copy_to_dev(buf3_ptr, sizebuffer-1, buf3_alias);
 
             MGMOL_PARALLEL_FOR_COLLAPSE(2, buf3_alias, functions_alias)
-            for (int color = begin_color; color < end_color; color++)
+            for (int color = 0; color < nfunc; color++)
             {
                 for (int k = 0; k < east_west_size; k++)
                 {
@@ -1240,7 +1276,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
             MemorySpace::copy_to_dev(buf4_ptr, sizebuffer-1, buf4_alias);
 
             MGMOL_PARALLEL_FOR_COLLAPSE(2, buf4_alias, functions_alias)
-            for (int color = begin_color; color < end_color; color++)
+            for (int color = 0; color < nfunc; color++)
             {
                 for (int k = 0; k < east_west_size; k++)
                 {
@@ -1280,6 +1316,19 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
 
         if (bc_[0] == 1)
         {
+#ifdef HAVE_OPENMP_OFFLOAD
+            MGMOL_PARALLEL_FOR_COLLAPSE(2, functions_alias)
+            for (int color = 0; color < nfunc; color++)
+            {
+                for (int k = 0; k < east_west_size; k++)
+                {
+                    ScalarType* pu 
+                        = functions_alias + color * size_per_function;
+                    pu[k] = pu[xmax+k];
+                    pu[east_west_size + xmax + k] = pu[east_west_size + k];
+                }
+            }
+#else
             const size_t east_west_size_data
                 = east_west_size_ * sizeof(ScalarType);
 
@@ -1290,6 +1339,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::finishEastWestComm()
                 memcpy(&pu[east_west_size_ + xmax], &pu[east_west_size_],
                     east_west_size_data);
             }
+#endif
         }
     }
     finishExchangeEastWest_tm_.stop();
