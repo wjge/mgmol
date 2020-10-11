@@ -72,7 +72,8 @@ public:
 
     // A->B
     void apply(GridFunc<T>& A, GridFunc<T>& B) override;
-    void apply(GridFuncVector<T, memory_space_type>& A, GridFuncVector<T, memory_space_type>& B) override;
+    void apply(GridFuncVector<T, memory_space_type>& A,
+        GridFuncVector<T, memory_space_type>& B) override;
 
     void rhs(GridFunc<T>& A, GridFunc<T>& B) const override
     {
@@ -85,9 +86,10 @@ public:
     }
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&) override;
-    void jacobi(
-        GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFunc<T>&) override;
-    void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&,
+    void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&) override;
+    void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&,
         GridFuncVector<T, memory_space_type>&) override;
 
     double lambda2() const { return lambda2_; }

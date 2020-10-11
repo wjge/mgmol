@@ -23,6 +23,7 @@ class Lap : public FDoper<T>
 {
 public:
     using memory_space_type = typename FDoperInterface::memory_space_type;
+
 protected:
     std::string name_;
 
@@ -38,21 +39,27 @@ public:
         std::cerr << "ERROR: Lap::applyWithPot() not implemented" << std::endl;
         MPI_Abort(MPI_COMM_WORLD, 0);
     }
-    virtual void apply(GridFuncVector<T, memory_space_type>& A, GridFuncVector<T, memory_space_type>& B) = 0;
+    virtual void apply(GridFuncVector<T, memory_space_type>& A,
+        GridFuncVector<T, memory_space_type>& B)
+        = 0;
 
     std::string name() const { return name_; }
 
     virtual void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&) = 0;
-    virtual void jacobi(
-        GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFunc<T>&)
+    virtual void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&)
         = 0;
-    virtual void jacobi(
-        GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFuncVector<T, memory_space_type>&)
+    virtual void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&,
+        GridFuncVector<T, memory_space_type>&)
         = 0;
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&, const double);
-    void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFunc<T>&, const double);
-    void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&,
+    void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&,
+        const double);
+    void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&,
         GridFuncVector<T, memory_space_type>&, const double);
 
     double energyES(GridFunc<T>&, GridFunc<T>&);

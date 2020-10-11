@@ -42,13 +42,13 @@ int main(int argc, char* argv[])
     }
 #endif
 
-    //warm up
-    for(size_t i=0;i<32;i++)
+    // warm up
+    for (size_t i = 0; i < 32; i++)
     {
-        std::vector<int> val_host(1024,1);
+        std::vector<int> val_host(1024, 1);
 #ifdef HAVE_OPENMP_OFFLOAD
         std::unique_ptr<int, void (*)(int*)> val_dev(
-            MemoryDev<int>::allocate(1024),MemoryDev<int>::free);
+            MemoryDev<int>::allocate(1024), MemoryDev<int>::free);
 
         MemorySpace::copy_to_dev(val_host, val_dev);
 
@@ -57,14 +57,15 @@ int main(int argc, char* argv[])
         int* val_alias = val_host.data();
 #endif
         MGMOL_PARALLEL_FOR(val_alias)
-        for(size_t j=0; j<1024; ++j)
+        for (size_t j = 0; j < 1024; ++j)
         {
-            val_alias[j]=j;
+            val_alias[j] = j;
         }
-        MPI_Allreduce(MPI_IN_PLACE, val_host.data(), 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, val_host.data(), 1, MPI_DOUBLE, MPI_MIN,
+            MPI_COMM_WORLD);
         MPI_Barrier(MPI_COMM_WORLD);
     }
-    //end of warm up
+    // end of warm up
 
     {
         const unsigned sizexyz = std::cbrt(size);
@@ -72,7 +73,7 @@ int main(int argc, char* argv[])
         const double origin[3]  = { 0., 0., 0. };
         const double ll         = 2.;
         const double lattice[3] = { ll, ll, ll };
-        const unsigned ngpts[3] = { 32*sizexyz, 32*sizexyz, 32*sizexyz };
+        const unsigned ngpts[3] = { 32 * sizexyz, 32 * sizexyz, 32 * sizexyz };
         const short nghosts     = 2;
 
         const double h[3] = { ll / static_cast<double>(ngpts[0]),
@@ -85,13 +86,13 @@ int main(int argc, char* argv[])
 
         pb::Laph4<double> lap(grid);
 
-        //for strong scaling
-        //const size_t numgridfunc = 3000/static_cast<size_t>(size);
-        //for weak scaling
+        // for strong scaling
+        // const size_t numgridfunc = 3000/static_cast<size_t>(size);
+        // for weak scaling
         const size_t numgridfunc = 3000;
 
-        std::cout<<"size of mpi: "<< size <<
-                   ", num of func per mpi rank: " << numgridfunc << std::endl;
+        std::cout << "size of mpi: " << size
+                  << ", num of func per mpi rank: " << numgridfunc << std::endl;
 
         const int endx = nghosts + grid.dim(0);
         const int endy = nghosts + grid.dim(1);
@@ -127,19 +128,20 @@ int main(int argc, char* argv[])
             }
         }
 
-        //divid the functions into groups
+        // divid the functions into groups
         const size_t nfuncgroups = 1;
- 
-        const size_t nfuncpergroup = numgridfunc / nfuncgroups;        
 
-        const size_t nfuncpergroupspace = nfuncpergroup * grid.sizeg();        
+        const size_t nfuncpergroup = numgridfunc / nfuncgroups;
 
-        std::cout << "sizeg= " << grid.sizeg() <<
-                     ", number of function groups: " << nfuncgroups <<
-                     ", number of functions per group: " << nfuncpergroup << 
-                     ", size of functiongroup: " << nfuncpergroupspace <<std::endl;
+        const size_t nfuncpergroupspace = nfuncpergroup * grid.sizeg();
 
-        for(size_t i=0; i<nfuncgroups; i++)
+        std::cout << "sizeg= " << grid.sizeg()
+                  << ", number of function groups: " << nfuncgroups
+                  << ", number of functions per group: " << nfuncpergroup
+                  << ", size of functiongroup: " << nfuncpergroupspace
+                  << std::endl;
+
+        for (size_t i = 0; i < nfuncgroups; i++)
         {
             auto arrayofgf1
                 = std::unique_ptr<double[]>(new double[nfuncpergroupspace]());
@@ -164,7 +166,8 @@ int main(int argc, char* argv[])
 
             time_fdtime.start();
 
-            // apply FD (-Laplacian) operator to arrayofgf1, result in arrayofgf2
+            // apply FD (-Laplacian) operator to arrayofgf1, result in
+            // arrayofgf2
             lap.apply(grid, arrayofgf1.get(), arrayofgf2.get(), nfuncpergroup);
 
             time_fdtime.stop();

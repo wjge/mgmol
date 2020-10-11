@@ -249,7 +249,8 @@ public:
     }
 
     template <typename T>
-    void setDataWithGhosts(pb::GridFuncVector<T, memory_space_type>* data_wghosts)
+    void setDataWithGhosts(
+        pb::GridFuncVector<T, memory_space_type>* data_wghosts)
     {
         assert(data_wghosts != 0);
 

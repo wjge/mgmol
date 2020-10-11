@@ -87,7 +87,8 @@ public:
         this->del2_2nd(A, B);
         B.set_bc(A.bc(0), A.bc(1), A.bc(2));
     }
-    void apply(GridFuncVector<T, memory_space_type>& A, GridFuncVector<T, memory_space_type>& B) override
+    void apply(GridFuncVector<T, memory_space_type>& A,
+        GridFuncVector<T, memory_space_type>& B) override
     {
         assert(A.size() == B.size());
         A.trade_boundaries();
@@ -99,9 +100,10 @@ public:
     }
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&) override;
-    void jacobi(
-        GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&, GridFunc<T>&) override;
-    void jacobi(GridFuncVector<T, memory_space_type>&, const GridFuncVector<T, memory_space_type>&,
+    void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&) override;
+    void jacobi(GridFuncVector<T, memory_space_type>&,
+        const GridFuncVector<T, memory_space_type>&,
         GridFuncVector<T, memory_space_type>&) override;
 
     double diagEl(void) const override { return diagEl_; };

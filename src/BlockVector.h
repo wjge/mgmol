@@ -94,7 +94,10 @@ public:
         return *data_wghosts_;
     }
 
-    pb::GridFuncVector<ScalarType, MemorySpaceType>* getPtDataWGhosts() { return data_wghosts_; }
+    pb::GridFuncVector<ScalarType, MemorySpaceType>* getPtDataWGhosts()
+    {
+        return data_wghosts_;
+    }
 
     void initialize(
         const std::vector<std::vector<int>>& gid, const bool skinny_stencil);
@@ -132,7 +135,8 @@ public:
     ScalarType maxAbsValue() const;
 
     template <typename ScalarType2>
-    void setDataWithGhosts(pb::GridFuncVector<ScalarType2, MemorySpaceType>* data_wghosts);
+    void setDataWithGhosts(
+        pb::GridFuncVector<ScalarType2, MemorySpaceType>* data_wghosts);
 
     void setDataWithGhosts();
 
@@ -159,7 +163,8 @@ public:
     void assignComponent(const pb::GridFunc<ScalarType2>& src, const int i);
     template <typename ScalarType2>
     void assignComponent(
-        const pb::GridFuncVector<ScalarType2, MemorySpaceType>& src, const int i);
+        const pb::GridFuncVector<ScalarType2, MemorySpaceType>& src,
+        const int i);
 
     void assignLocal(
         const int color, const short iloc, const ScalarType* const src)

@@ -48,7 +48,8 @@ private:
 
     void app_mask(
         pb::GridFunc<T>&, const short level, const int istate = -1) const;
-    void app_mask(pb::GridFuncVector<T,memory_space_type>&, const short level) const;
+    void app_mask(
+        pb::GridFuncVector<T, memory_space_type>&, const short level) const;
 
 public:
     Preconditioning(const short lap_type, const short maxlevels,
@@ -65,7 +66,8 @@ public:
         const std::vector<std::vector<int>>& gid);
     void mg(pb::GridFunc<T>& gf_v, const pb::GridFunc<T>& gf_f,
         const short level, const int istate = -1);
-    void mg(pb::GridFuncVector<T, memory_space_type>& gf_v, const pb::GridFuncVector<T, memory_space_type>& gf_f,
+    void mg(pb::GridFuncVector<T, memory_space_type>& gf_v,
+        const pb::GridFuncVector<T, memory_space_type>& gf_f,
         const short level);
     short max_levels() const { return max_levels_; }
 };

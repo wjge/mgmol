@@ -24,39 +24,41 @@ int main(int argc, char* argv[])
 
     const int noofdir = 6;
 
-    const int nooffunc = 3000; 
+    const int nooffunc = 3000;
 
     const int noofcomm = 2;
 
-    int nooffuncpercomm = nooffunc/noofcomm;
+    int nooffuncpercomm = nooffunc / noofcomm;
 
-    std::cout<<"size of mpi: "<< size << 
-    ", total number of functions: " << nooffunc <<
-    ", number of functions per mpi send/recv:" << nooffuncpercomm  << 
-    std::endl;
+    std::cout << "size of mpi: " << size
+              << ", total number of functions: " << nooffunc
+              << ", number of functions per mpi send/recv:" << nooffuncpercomm
+              << std::endl;
 
-    const int NX = 32*32*2*nooffuncpercomm;
+    const int NX = 32 * 32 * 2 * nooffuncpercomm;
 
     std::vector<double> C(NX);
     std::vector<double> D(NX);
 
-    int LEFT = (rank-1+size)%size;
-    int RIGHT = (rank+1+size)%size;
+    int LEFT  = (rank - 1 + size) % size;
+    int RIGHT = (rank + 1 + size) % size;
 
     MPI_Request reqs[2];
 
     MPI_Barrier(MPI_COMM_WORLD);
     time_mpitime.start();
 
-    for(int j=0; j<noofdir; j++)
+    for (int j = 0; j < noofdir; j++)
     {
-        for(int i=0; i<noofcomm; i++)
+        for (int i = 0; i < noofcomm; i++)
         {
-            MPI_Irecv(D.data(), NX, MPI_DOUBLE, RIGHT, 2423, MPI_COMM_WORLD, &reqs[1]);
+            MPI_Irecv(D.data(), NX, MPI_DOUBLE, RIGHT, 2423, MPI_COMM_WORLD,
+                &reqs[1]);
 
-            MPI_Isend(C.data(), NX, MPI_DOUBLE, LEFT, 2423, MPI_COMM_WORLD, &reqs[0]);
-      
-            MPI_Wait(reqs+1, MPI_STATUS_IGNORE);
+            MPI_Isend(
+                C.data(), NX, MPI_DOUBLE, LEFT, 2423, MPI_COMM_WORLD, &reqs[0]);
+
+            MPI_Wait(reqs + 1, MPI_STATUS_IGNORE);
         }
     }
 

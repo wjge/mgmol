@@ -2646,6 +2646,7 @@ template void LocGridOrbitals::setPsi(
 template void LocGridOrbitals::setPsi(
     const pb::GridFunc<double>& gf_work, const int ist);
 
-template void LocGridOrbitals::setPsi(const pb::GridFuncVector<float, memory_space_type>& gf_work);
+template void LocGridOrbitals::setPsi(
+    const pb::GridFuncVector<float, memory_space_type>& gf_work);
 template void LocGridOrbitals::setPsi(
     const pb::GridFuncVector<double, memory_space_type>& gf_work);
