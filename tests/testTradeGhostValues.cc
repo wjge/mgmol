@@ -109,7 +109,18 @@ TEST_CASE("Trade ghost values", "[trade]")
             //gids[0].push_back((i + 3) % nfunc);
             gids[0].push_back(i);
 
-        pb::GridFuncVector<double> gfv(grid, 1, 1, 1, gids);
+#ifndef HAVE_OPENMP_OFFLOAD
+        pb::GridFuncVector<double, MemorySpace::Host> gfv(grid, 1, 1, 1, gids);
+        for (int i = 0; i < nfunc; i++)
+        {
+            std::vector<double> scaled_data(inner_data);
+            LinearAlgebraUtils<MemorySpace::Host>::MPscal(
+                nx * ny * nz, (double)(i + 1), scaled_data.data());
+            gfv.assign(i, scaled_data.data(), 'd');
+        }
+        gfv.trade_boundaries();
+#else
+        pb::GridFuncVector<double, MemorySpace::Device> gfv(grid, 1, 1, 1, gids);
         for (int i = 0; i < nfunc; i++)
         {
             std::vector<double> scaled_data(inner_data);
@@ -119,6 +130,8 @@ TEST_CASE("Trade ghost values", "[trade]")
         }
         gfv.copyHtoD(nfunc*grid.sizeg());
         gfv.trade_boundaries();
+        gfv.copyDtoH(nfunc*grid.sizeg());
+#endif
 
         if (mype_env.onpe0())
             for (int i = 0; i < nfunc; i++)

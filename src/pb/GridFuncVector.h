@@ -19,7 +19,7 @@
 
 namespace pb
 {
-template <typename ScalarType, typename MemorySpaceType = MemorySpace::Device>
+template <typename ScalarType, typename MemorySpaceType = MemorySpace::Host>
 class GridFuncVector
 {
     static Timer trade_bc_tm_;
@@ -35,9 +35,10 @@ class GridFuncVector
     // block of memory for all GridFunc
     std::unique_ptr<ScalarType> memory_;
 
+#ifdef HAVE_OPENMP_OFFLOAD
     // block of memory for device memory
-    //static std::vector<ScalarType*> class_storage_;
     std::unique_ptr<ScalarType, void (*)(ScalarType*)> functions_dev_;
+#endif
 
     using MemoryST = MemorySpace::Memory<ScalarType, MemorySpaceType>;
 
@@ -121,8 +122,10 @@ public:
           grid_(my_grid),
           comm_(my_grid.mype_env().comm()),
           skinny_stencil_(skinny_stencil),
-          nfunc4buffers_(0),
-          functions_dev_(MemoryST::allocate(gid[0].size()*my_grid.sizeg()), MemoryST::free)
+          nfunc4buffers_(0)
+#ifdef HAVE_OPENMP_OFFLOAD
+          , functions_dev_(MemoryST::allocate(gid[0].size()*my_grid.sizeg()), MemoryST::free)
+#endif
     {
         bc_[0] = px;
         bc_[1] = py;
@@ -143,13 +146,7 @@ public:
             assert(functions_[i] != 0);
             delete functions_[i];
         }
-        
-        /*for (auto it: class_storage_)
-        {
-            //delete[] it; 
-            MemorySpace::Memory<ScalarType, MemorySpaceType>::free(it);
-        }*/
-    }
+   }
 
     void setup();
 
@@ -163,25 +160,17 @@ public:
         updated_boundaries_ = false;
     }
 
-    //copy the host data to device
+#ifdef HAVE_OPENMP_OFFLOAD
     void copyHtoD(int size)
     {
         MemorySpace::copy_to_dev(memory_.get(), size, functions_dev_.get());
-
-/*        std::unique_ptr<ScalarType[]> functions_host{new ScalarType[size]};
-       
-        MemorySpace::copy_to_host(functions_dev_.get(), size, functions_host.get()); 
-
-        ScalarType* memory_alias = memory_.get();
-
-        for (int i = 0; i < size; i++)
-        {
-            if(memory_alias[i]!=functions_host.get()[i])   
-                printf("oops index=%d, uus_host=%f, uus_device=%f. \n", i, memory_alias[i], functions_host.get()[i]);
-        }
-*/
-
     }
+
+    void copyDtoH(int size)
+    {
+        MemorySpace::copy_to_host(functions_dev_.get(), size, memory_.get());
+    }
+#endif
 
     GridFunc<ScalarType>& getGridFunc(const int k)
     {
@@ -242,10 +231,6 @@ public:
         finishExchangeEastWest_tm_.print(os);
     }
 };
-
-//template <typename ScalarType, typename MemorySpaceType>
-//std::vector<ScalarType*>
-//    GridFuncVector<ScalarType, MemorySpaceType>::class_storage_;
 
 template <typename ScalarType, typename MemorySpaceType>
 Timer GridFuncVector<ScalarType, MemorySpaceType>::trade_bc_tm_("GridFuncVector::trade_bc");
