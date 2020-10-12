@@ -1392,9 +1392,9 @@ void GridFuncVector<ScalarType, MemorySpaceType>::trade_boundaries()
     assert(dimz_ >= nghosts_);
 
 #ifdef HAVE_OPENMP_OFFLOAD
-    copyHtoD(nfunc_*grid_.sizeg());
+    copyHtoD(nfunc_ * grid_.sizeg());
 #endif
-    
+
     trade_bc_tm_.start();
 
     bool direction[3] = { !bc_[0], !bc_[1], !bc_[2] };
@@ -1465,7 +1465,7 @@ void GridFuncVector<ScalarType, MemorySpaceType>::trade_boundaries()
     trade_bc_tm_.stop();
 
 #ifdef HAVE_OPENMP_OFFLOAD
-    copyDtoH(nfunc_*grid_.sizeg());
+    copyDtoH(nfunc_ * grid_.sizeg());
 #endif
 }
 template <typename ScalarType, typename MemorySpaceType>
