@@ -380,6 +380,8 @@ void FDoper<T>::del2_4th(
     MemorySpace::assert_is_host_ptr(A);
     MemorySpace::assert_is_host_ptr(B);
 
+    del2_4th_tm_.start();
+
     const double cc0 = inv12 * inv_h2_[0];
     const double c1x = -16. * cc0;
     const double c2x = 1. * cc0;
