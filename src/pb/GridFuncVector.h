@@ -20,7 +20,11 @@
 
 namespace pb
 {
+#ifdef HAVE_OPENMP_OFFLOAD
+template <typename ScalarType, typename MemorySpaceType = MemorySpace::Device>
+#else
 template <typename ScalarType, typename MemorySpaceType = MemorySpace::Host>
+#endif
 class GridFuncVector
 {
     static Timer trade_bc_tm_;
@@ -124,9 +128,44 @@ class GridFuncVector
             std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
     void finishNorthSouthComm();
 
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
     void initiateUpDownComm(const int begin_color, const int end_color);
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void initiateUpDownComm(const int begin_color, const int end_color);
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
     void finishUpDownComm();
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void finishUpDownComm();
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
     void initiateEastWestComm(const int begin_color, const int end_color);
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void initiateEastWestComm(const int begin_color, const int end_color);
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
+    void finishEastWestComm();
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
     void finishEastWestComm();
 
     void communicateRemoteGids(const int begin_color, const int end_color);
