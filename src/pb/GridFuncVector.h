@@ -15,15 +15,12 @@
 
 #include <map>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace pb
 {
-#ifdef HAVE_OPENMP_OFFLOAD
-template <typename ScalarType, typename MemorySpaceType = MemorySpace::Device>
-#else
 template <typename ScalarType, typename MemorySpaceType = MemorySpace::Host>
-#endif
 class GridFuncVector
 {
     static Timer trade_bc_tm_;
@@ -107,8 +104,26 @@ class GridFuncVector
 
     void allocate_buffers(const int nfunc);
 
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
     void initiateNorthSouthComm(const int begin_color, const int end_color);
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void initiateNorthSouthComm(const int begin_color, const int end_color);
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
     void finishNorthSouthComm();
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void finishNorthSouthComm();
+
     void initiateUpDownComm(const int begin_color, const int end_color);
     void finishUpDownComm();
     void initiateEastWestComm(const int begin_color, const int end_color);
