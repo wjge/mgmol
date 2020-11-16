@@ -88,10 +88,8 @@ class GridFuncVector
     // number of functions associated with buffers sizes
     int nfunc4buffers_;
 
-#ifdef HAVE_OPENMP_OFFLOAD
     // block of memory for device memory
     std::unique_ptr<ScalarType, void (*)(ScalarType*)> functions_dev_;
-#endif
 
     std::vector<std::vector<ScalarType>> comm_buf1_;
     std::vector<std::vector<ScalarType>> comm_buf2_;
@@ -180,11 +178,13 @@ public:
           grid_(my_grid),
           comm_(my_grid.mype_env().comm()),
           skinny_stencil_(skinny_stencil),
-          nfunc4buffers_(0)
+          nfunc4buffers_(0),
+// just for now
 #ifdef HAVE_OPENMP_OFFLOAD
-          ,
           functions_dev_(MemoryST::allocate(gid[0].size() * my_grid.sizeg()),
               MemoryST::free)
+#else
+          functions_dev_(nullptr, nullptr)
 #endif
     {
         bc_[0] = px;
