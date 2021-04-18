@@ -131,6 +131,9 @@ add_executable(testTradeGhostValues
                ${CMAKE_SOURCE_DIR}/src/pb/PEenv.cc
                ${CMAKE_SOURCE_DIR}/src/pb/GridFunc.cc
                ${CMAKE_SOURCE_DIR}/src/pb/GridFuncVector.cc
+               ${CMAKE_SOURCE_DIR}/src/Map2Masks.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/MGkernels.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/FDkernels.cc
                ${CMAKE_SOURCE_DIR}/src/tools/MGmol_MPI.cc
                ${CMAKE_SOURCE_DIR}/src/linear_algebra/mputils.cc
                ${CMAKE_SOURCE_DIR}/src/tools/mgmol_mpi_tools.cc
@@ -147,6 +150,9 @@ add_executable(testLaph4
                ${CMAKE_SOURCE_DIR}/src/pb/PEenv.cc
                ${CMAKE_SOURCE_DIR}/src/pb/GridFunc.cc
                ${CMAKE_SOURCE_DIR}/src/pb/GridFuncVector.cc
+               ${CMAKE_SOURCE_DIR}/src/Map2Masks.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/MGkernels.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/FDkernels.cc
                ${CMAKE_SOURCE_DIR}/src/tools/MGmol_MPI.cc
                ${CMAKE_SOURCE_DIR}/src/linear_algebra/mputils.cc
                ${CMAKE_SOURCE_DIR}/src/tools/mgmol_mpi_tools.cc
@@ -154,6 +160,7 @@ add_executable(testLaph4
                ${CMAKE_SOURCE_DIR}/tests/ut_main.cc)
 add_executable(testBatchLaph4
                ${CMAKE_SOURCE_DIR}/tests/testBatchLaph4.cc
+               ${CMAKE_SOURCE_DIR}/src/Map2Masks.cc
                ${CMAKE_SOURCE_DIR}/src/pb/Laph4.cc
                ${CMAKE_SOURCE_DIR}/src/pb/Lap.cc
                ${CMAKE_SOURCE_DIR}/src/pb/Laph2.cc
@@ -166,6 +173,23 @@ add_executable(testBatchLaph4
                ${CMAKE_SOURCE_DIR}/src/tools/MGmol_MPI.cc
                ${CMAKE_SOURCE_DIR}/src/linear_algebra/mputils.cc
                ${CMAKE_SOURCE_DIR}/src/tools/mgmol_mpi_tools.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/MGkernels.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/FDkernels.cc
+               ${CMAKE_SOURCE_DIR}/src/tools/Timer.cc
+               ${CMAKE_SOURCE_DIR}/tests/ut_main.cc)
+add_executable(testMGkernels
+               ${CMAKE_SOURCE_DIR}/tests/testMGkernels.cc
+               ${CMAKE_SOURCE_DIR}/src/Map2Masks.cc
+               ${CMAKE_SOURCE_DIR}/src/magma_singleton.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/Grid.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/PEenv.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/GridFunc.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/GridFuncVector.cc
+               ${CMAKE_SOURCE_DIR}/src/tools/MGmol_MPI.cc
+               ${CMAKE_SOURCE_DIR}/src/linear_algebra/mputils.cc
+               ${CMAKE_SOURCE_DIR}/src/tools/mgmol_mpi_tools.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/MGkernels.cc
+               ${CMAKE_SOURCE_DIR}/src/pb/FDkernels.cc
                ${CMAKE_SOURCE_DIR}/src/tools/Timer.cc
                ${CMAKE_SOURCE_DIR}/tests/ut_main.cc)
 add_executable(testGramMatrix
@@ -278,6 +302,9 @@ add_test(NAME testLaph4
 add_test(NAME testBatchLaph4
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS}
                  ${CMAKE_CURRENT_BINARY_DIR}/testBatchLaph4)
+add_test(NAME testtMGkernels
+         COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS}
+                 ${CMAKE_CURRENT_BINARY_DIR}/testMGkernels)
 add_test(NAME testGramMatrix
          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS}
                  ${CMAKE_CURRENT_BINARY_DIR}/testGramMatrix)
@@ -422,6 +449,14 @@ add_test(NAME testSpinO2
          ${CMAKE_CURRENT_SOURCE_DIR}/SpinO2/mgmol_spin1.cfg
          ${CMAKE_CURRENT_SOURCE_DIR}/SpinO2/coords.in
          ${CMAKE_CURRENT_SOURCE_DIR}/../potentials)
+add_test(NAME testSpinO2LDA
+         COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/SpinO2LDA/test.py
+         ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${MPIEXEC_PREFLAGS}
+         ${CMAKE_CURRENT_BINARY_DIR}/../src/mgmol-opt
+         ${CMAKE_CURRENT_SOURCE_DIR}/SpinO2LDA/mgmol.cfg
+         ${CMAKE_CURRENT_SOURCE_DIR}/SpinO2LDA/coords.in
+         ${CMAKE_CURRENT_SOURCE_DIR}/SpinO2LDA/lrs.in
+         ${CMAKE_CURRENT_SOURCE_DIR}/../potentials)
 
 
 target_include_directories(testHDF5P PRIVATE ${HDF5_INCLUDE_DIRS})
@@ -466,6 +501,8 @@ if(${MAGMA_FOUND})
     MPI::MPI_CXX OpenMP::OpenMP_CXX PkgConfig::MAGMA)
   target_link_libraries(testBatchLaph4 PRIVATE ${BLAS_LIBRARIES}
     MPI::MPI_CXX OpenMP::OpenMP_CXX PkgConfig::MAGMA)
+  target_link_libraries(testMGkernels PRIVATE ${BLAS_LIBRARIES}
+    MPI::MPI_CXX OpenMP::OpenMP_CXX PkgConfig::MAGMA)
   target_link_libraries(testGramMatrix PRIVATE ${SCALAPACK_LIBRARIES}
     ${BLAS_LIBRARIES} MPI::MPI_CXX OpenMP::OpenMP_CXX PkgConfig::MAGMA)
   target_link_libraries(testDensityMatrix PRIVATE ${SCALAPACK_LIBRARIES}
@@ -503,6 +540,8 @@ else()
   target_link_libraries(testLaph4 PRIVATE ${BLAS_LIBRARIES}
     MPI::MPI_CXX OpenMP::OpenMP_CXX)
   target_link_libraries(testBatchLaph4 PRIVATE ${BLAS_LIBRARIES}
+    MPI::MPI_CXX OpenMP::OpenMP_CXX)
+  target_link_libraries(testMGkernels PRIVATE ${BLAS_LIBRARIES}
     MPI::MPI_CXX OpenMP::OpenMP_CXX)
   target_link_libraries(testGramMatrix PRIVATE ${SCALAPACK_LIBRARIES}
     ${BLAS_LIBRARIES} MPI::MPI_CXX OpenMP::OpenMP_CXX)

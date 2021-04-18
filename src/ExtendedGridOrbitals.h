@@ -19,6 +19,7 @@
 #include "Mesh.h"
 #include "Orbitals.h"
 #include "SinCosOps.h"
+#include "SquareLocalMatrices.h"
 #include "global.h"
 
 #include "hdf5.h"
@@ -27,10 +28,6 @@
 #include <string>
 #include <vector>
 
-template <class T>
-class LocalMatrices;
-template <class T>
-class SquareLocalMatrices;
 class Potentials;
 template <class T>
 class ProjectedMatrices;
@@ -111,7 +108,13 @@ private:
     double dotProductSimple(const ExtendedGridOrbitals& orbitals);
 
     void computeLocalProduct(const ORBDTYPE* const, const int,
-        LocalMatrices<MATDTYPE>&, const bool transpose = false);
+        LocalMatrices<MATDTYPE, MemorySpace::Host>&,
+        const bool transpose = false);
+#ifdef HAVE_MAGMA
+    void computeLocalProduct(const ORBDTYPE* const, const int,
+        LocalMatrices<MATDTYPE, MemorySpace::Device>&,
+        const bool transpose = false);
+#endif
 
     void computeGlobalIndexes();
     void computeInvNorms2(std::vector<std::vector<double>>& inv_norms2) const;
@@ -119,14 +122,21 @@ private:
 
     void initFourier();
     void initRand();
-    dist_matrix::DistMatrix<DISTMATDTYPE> product(const ORBDTYPE* const,
+    dist_matrix::DistMatrix<DISTMATDTYPE> computeProduct(const ORBDTYPE* const,
         const int, const int, const bool transpose = false);
 
     ORBDTYPE* psi(const int i) const { return block_vector_.vect(i); }
 
     void app_mask(const int, ORBDTYPE*, const short) const {};
-    void multiplyByMatrix(const SquareLocalMatrices<MATDTYPE>& matrix,
+#ifdef HAVE_MAGMA
+    void multiplyByMatrix(
+        const SquareLocalMatrices<MATDTYPE, MemorySpace::Device>& matrix,
         ORBDTYPE* product, const int ldp) const;
+#endif
+    void multiplyByMatrix(
+        const SquareLocalMatrices<MATDTYPE, MemorySpace::Host>& matrix,
+        ORBDTYPE* product, const int ldp) const;
+
     void setup();
 
 protected:
@@ -302,16 +312,17 @@ public:
     void computeDiagonalElementsDotProduct(const ExtendedGridOrbitals& orbitals,
         std::vector<DISTMATDTYPE>& ss) const;
 
-    dist_matrix::DistMatrix<DISTMATDTYPE> product(
+    dist_matrix::DistMatrix<DISTMATDTYPE> computeProduct(
         const ExtendedGridOrbitals&, const bool transpose = false);
     void computeLocalProduct(const ExtendedGridOrbitals&,
-        LocalMatrices<MATDTYPE>&, const bool transpose = false);
-    void getLocalOverlap(SquareLocalMatrices<MATDTYPE>&);
-    void getLocalOverlap(
-        const ExtendedGridOrbitals& orbitals, SquareLocalMatrices<MATDTYPE>&);
+        LocalMatrices<MATDTYPE, MemorySpace::Host>&,
+        const bool transpose = false);
+    void getLocalOverlap(SquareLocalMatrices<MATDTYPE, MemorySpace::Host>&);
+    void getLocalOverlap(const ExtendedGridOrbitals& orbitals,
+        SquareLocalMatrices<MATDTYPE, MemorySpace::Host>&);
 
-    void addDotWithNcol2Matrix(
-        ExtendedGridOrbitals&, dist_matrix::DistMatrix<double>&) const;
+    template <class MatrixType>
+    void addDotWithNcol2Matrix(ExtendedGridOrbitals&, MatrixType&) const;
 
     void scal(const double alpha)
     {
@@ -323,8 +334,9 @@ public:
     void normalize();
     void orthonormalize2states(const int st1, const int st2);
     void orthonormalizeLoewdin(const bool overlap_uptodate = false,
-        SquareLocalMatrices<MATDTYPE>* matrixTransform     = nullptr,
-        const bool update_matrices                         = true);
+        SquareLocalMatrices<MATDTYPE, MemorySpace::Host>* matrixTransform
+        = nullptr,
+        const bool update_matrices = true);
 
     ExtendedGridOrbitals& operator-=(const ExtendedGridOrbitals& orbitals)
     {
@@ -340,12 +352,20 @@ public:
     void applyMask(const bool = false){};
     void applyCorrMask(const bool = false){};
 
-    void multiplyByMatrix(const SquareLocalMatrices<MATDTYPE>& matrix);
-    void multiplyByMatrix(const SquareLocalMatrices<MATDTYPE>& matrix,
+#ifdef HAVE_MAGMA
+    void multiplyByMatrix(
+        const SquareLocalMatrices<MATDTYPE, MemorySpace::Device>& matrix);
+#endif
+    void multiplyByMatrix(
+        const SquareLocalMatrices<MATDTYPE, MemorySpace::Host>& matrix);
+
+    void multiplyByMatrix(
+        const SquareLocalMatrices<MATDTYPE, MemorySpace::Host>& matrix,
         ExtendedGridOrbitals& product) const;
     void multiply_by_matrix(
         const DISTMATDTYPE* const matrix, ExtendedGridOrbitals& product) const;
-    void multiply_by_matrix(const dist_matrix::DistMatrix<DISTMATDTYPE>&);
+    template <class MatrixType>
+    void multiply_by_matrix(const MatrixType&);
     void multiplyByMatrix2states(const int st1, const int st2,
         const double* mat, ExtendedGridOrbitals& product);
 

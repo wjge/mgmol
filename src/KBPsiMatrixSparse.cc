@@ -17,6 +17,7 @@
 #include "Mesh.h"
 #include "ProjectedMatrices.h"
 #include "ProjectedMatricesSparse.h"
+#include "ReplicatedMatrix.h"
 #include "SquareSubMatrix2DistMatrix.h"
 
 #include <limits.h>
@@ -424,6 +425,22 @@ void KBPsiMatrixSparse::computeHvnlMatrix(
     ss2dm->accumulate(submat, hij, 0.);
 }
 
+#ifdef HAVE_MAGMA
+
+template <>
+void KBPsiMatrixSparse::computeHvnlMatrix(
+    const KBPsiMatrixInterface* const kbpsi2, const Ions& ions,
+    ReplicatedMatrix& hij) const
+{
+    SquareSubMatrix<double> submat(computeHvnlMatrix(kbpsi2, ions));
+
+    hij.init(submat.data(), submat.ld());
+
+    hij.consolidate();
+}
+
+#endif
+
 // build <P|phi> elements, one atom at a time
 SquareSubMatrix<double> KBPsiMatrixSparse::computeHvnlMatrix(
     const KBPsiMatrixInterface* const kbpsi2, const Ions& ions) const
@@ -613,8 +630,9 @@ template <>
 double KBPsiMatrixSparse::getEvnl(const Ions& ions,
     ProjectedMatrices<dist_matrix::DistMatrix<DISTMATDTYPE>>* proj_matrices)
 {
-    SquareLocalMatrices<double> dm(proj_matrices->getReplicatedDM());
-    double* replicated_dm = dm.getSubMatrix();
+    SquareLocalMatrices<double, MemorySpace::Host> dm(
+        proj_matrices->getReplicatedDM());
+    double* replicated_dm = dm.getRawPtr();
 
     double trace = 0.0;
     // loop over all the ions

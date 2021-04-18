@@ -10,7 +10,9 @@
 #ifndef GRIDFUNCVECTOR_H
 #define GRIDFUNCVECTOR_H
 
+#include "FDkernels.h"
 #include "GridFunc.h"
+#include "Map2Masks.h"
 #include "memory_space.h"
 
 #include <map>
@@ -36,6 +38,8 @@ class GridFuncVector
     static Timer wait_north_south_tm_;
     static Timer wait_up_down_tm_;
     static Timer wait_east_west_tm_;
+
+    static Map2Masks* map2masks_;
 
     // block of memory for all GridFunc
     std::unique_ptr<ScalarType> memory_;
@@ -85,11 +89,10 @@ class GridFuncVector
 
     const bool skinny_stencil_;
 
-    // number of functions associated with buffers sizes
     int nfunc4buffers_;
 
     // block of memory for device memory
-    std::unique_ptr<ScalarType, void (*)(ScalarType*)> functions_dev_;
+    std::unique_ptr<ScalarType, void (*)(ScalarType*)> memory_dev_;
 
     std::vector<std::vector<ScalarType>> comm_buf1_;
     std::vector<std::vector<ScalarType>> comm_buf2_;
@@ -181,10 +184,10 @@ public:
           nfunc4buffers_(0),
 // just for now
 #ifdef HAVE_OPENMP_OFFLOAD
-          functions_dev_(MemoryST::allocate(gid[0].size() * my_grid.sizeg()),
+          memory_dev_(MemoryST::allocate(gid[0].size() * my_grid.sizeg()),
               MemoryST::free)
 #else
-          functions_dev_(nullptr, nullptr)
+          memory_dev_(nullptr, nullptr)
 #endif
     {
         bc_[0] = px;
@@ -210,25 +213,45 @@ public:
 
     void setup();
 
+    static void setMasks(Map2Masks* map2masks) { map2masks_ = map2masks; }
+
+    const Grid& grid() const { return grid_; }
+
+    ScalarType* data() { return memory_.get(); }
+
+    ScalarType* getDataPtr(const int ifunc, const int index = 0)
+    {
+        return memory_.get() + ifunc * grid_.sizeg() + index;
+    }
+
+    // assign values to one GridFunc from values in array src
+    // (without ghosts)
     template <typename ScalarType2>
-    void assign(const int i, const ScalarType2* const v, const char dis = 'd')
+    void assign(const int i, const ScalarType2* const src, const char dis = 'd')
     {
         assert(i < static_cast<int>(functions_.size()));
         assert(functions_[i] != nullptr);
 
-        functions_[i]->assign(v, dis);
+        functions_[i]->assign(src, dis);
         updated_boundaries_ = false;
+    }
+
+    // extract values from one GridFunc into array dst
+    // (without ghosts)
+    void init_vect(const int k, ScalarType* dst, const char dis) const
+    {
+        functions_[k]->init_vect(dst, dis);
     }
 
 #ifdef HAVE_OPENMP_OFFLOAD
     void copyHtoD(int size)
     {
-        MemorySpace::copy_to_dev(memory_.get(), size, functions_dev_.get());
+        MemorySpace::copy_to_dev(memory_.get(), size, memory_dev_.get());
     }
 
     void copyDtoH(int size)
     {
-        MemorySpace::copy_to_host(functions_dev_.get(), size, memory_.get());
+        MemorySpace::copy_to_host(memory_dev_.get(), size, memory_.get());
     }
 #endif
 
@@ -247,25 +270,155 @@ public:
 
         return *functions_[k];
     }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
+    void del2_4th(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_4th(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void del2_4th(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        // assume the CPU data is uptodate for now...
+        FDkernelDel2_4th(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
+    void del2_4th_Mehr(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_4th_Mehr(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void del2_4th_Mehr(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        // assume the CPU data is uptodate for now...
+        FDkernelDel2_4th_Mehr(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
+    void del2_2nd(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_2nd(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void del2_2nd(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        // assume the CPU data is uptodate for now...
+        FDkernelDel2_2nd(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
+    void del2_6th(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_6th(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void del2_6th(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_6th(
+            grid(), data(), rhs.data(), size(), MemorySpace::Device());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Host, MST>::value>::type* = nullptr>
+    void del2_8th(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_8th(
+            grid(), data(), rhs.data(), size(), MemorySpace::Host());
+
+        rhs.set_updated_boundaries(0);
+    }
+
+    template <typename MST = MemorySpaceType,
+        typename std::enable_if<
+            std::is_same<MemorySpace::Device, MST>::value>::type* = nullptr>
+    void del2_8th(GridFuncVector<ScalarType, MemorySpaceType>& rhs)
+    {
+        trade_boundaries();
+
+        FDkernelDel2_8th(
+            grid(), data(), rhs.data(), size(), MemorySpace::Device());
+
+        rhs.set_updated_boundaries(0);
+    }
+
     void trade_boundaries();
     void trade_boundaries_colors(const short, const short);
 
-    size_t size() const { return functions_.size(); }
+    size_t size() const { return nfunc_; }
 
     // pointwise products this=A*B for each vector in this
-    void prod(GridFuncVector<ScalarType, MemorySpaceType>& A,
-        const GridFunc<double>& B);
-    void prod(GridFuncVector<ScalarType, MemorySpaceType>& A,
-        const GridFunc<float>& B);
+    template <typename ScalarType2>
+    void pointwiseProduct(GridFuncVector<ScalarType, MemorySpaceType>& A,
+        const GridFunc<ScalarType2>& B);
 
     void extend3D(GridFuncVector<ScalarType, MemorySpaceType>&);
     void restrict3D(GridFuncVector<ScalarType, MemorySpaceType>&);
     void resetData()
     {
-        assert(nfunc_ == static_cast<int>(functions_.size()));
-
-        for (short k = 0; k < nfunc_; k++)
-            functions_[k]->resetData();
+        memset(memory_.get(), 0, nfunc_ * grid_.sizeg() * sizeof(ScalarType));
         updated_boundaries_ = true;
     }
     void set_updated_boundaries(const bool flag) { updated_boundaries_ = flag; }
@@ -274,12 +427,16 @@ public:
     void axpy(const double alpha,
         const GridFuncVector<ScalarType, MemorySpaceType>& func);
 
-    void init_vect(const int k, ScalarType* vv, const char dis) const;
-
     template <typename InputScalarType>
     void getValues(const int k, InputScalarType* vv) const;
-    // template <typename MemorySpaceType>
-    // void getValues(const int k, float* vv) const;
+
+    void applyLap(
+        const int type, GridFuncVector<ScalarType, MemorySpaceType>& rhs);
+    void jacobi(const int type,
+        const GridFuncVector<ScalarType, MemorySpaceType>& B,
+        GridFuncVector<ScalarType, MemorySpaceType>& w, const double scale);
+
+    void app_mask(const short level);
 
     static void printTimers(std::ostream& os)
     {
@@ -323,6 +480,8 @@ template <typename ScalarType, typename MemorySpaceType>
 Timer GridFuncVector<ScalarType, MemorySpaceType>::wait_east_west_tm_(
     "GridFuncVector::waitEW");
 
+template <typename ScalarType, typename MemorySpaceType>
+Map2Masks* GridFuncVector<ScalarType, MemorySpaceType>::map2masks_(nullptr);
 } // namespace pb
 
 #endif

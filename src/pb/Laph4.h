@@ -10,6 +10,7 @@
 #ifndef PB_LAPH4_H
 #define PB_LAPH4_H
 
+#include "FDkernels.h"
 #include "Laph2.h"
 
 // Laplacian operator O(h^4)
@@ -86,8 +87,8 @@ public:
     // A->B
     void apply(GridFunc<T>& A, GridFunc<T>& B) override
     {
-        if (!A.updated_boundaries()) A.trade_boundaries();
-        this->del2_4th(A.grid(), A.uu(), B.uu(), 1, MemorySpace::Host());
+        A.trade_boundaries();
+        FDkernelDel2_4th(A.grid(), A.uu(), B.uu(), 1, MemorySpace::Host());
         B.set_updated_boundaries(0);
         B.set_bc(A.bc(0), A.bc(1), A.bc(2));
     }
@@ -95,28 +96,14 @@ public:
     {
         this->del2_4th_withPot(A, pot, B);
     }
-    void apply(GridFuncVector<T, memory_space_type>& A,
-        GridFuncVector<T, memory_space_type>& B) override
-    {
-        assert(A.size() == B.size());
-        A.trade_boundaries();
-        const int nfunc = (int)A.size();
-        for (int k = 0; k < nfunc; k++)
-        {
-            this->del2_4th(A.getGridFunc(k), B.getGridFunc(k));
-        }
-    }
     void apply(Grid& Agrid, T* A, T* B, const size_t nfunc)
     {
-        this->del2_4th(Agrid, A, B, nfunc, MemorySpace::Host());
+        FDkernelDel2_4th(Agrid, A, B, nfunc, MemorySpace::Host());
     }
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&) override;
-    void jacobi(GridFuncVector<T, memory_space_type>&,
-        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&) override;
-    void jacobi(GridFuncVector<T, memory_space_type>&,
-        const GridFuncVector<T, memory_space_type>&,
-        GridFuncVector<T, memory_space_type>&) override;
+
+    double jacobiFactor() const override { return invDiagEl_ / 1.5; }
 
     double diagEl(void) const override { return diagEl_; };
     double invDiagEl(void) const override { return invDiagEl_; };

@@ -14,6 +14,7 @@
 #include "Mesh.h"
 #include "Potentials.h"
 #include "ProjectedMatrices.h"
+#include "ReplicatedMatrix.h"
 
 template <class T>
 Hamiltonian<T>::Hamiltonian()
@@ -113,7 +114,7 @@ void Hamiltonian<T>::applyLocal(const int ncolors, T& phi, T& hphi)
             mygrid, ct.bcWF[0], ct.bcWF[1], ct.bcWF[2], gid);
         pb::GridFuncVector<ORBDTYPE, memory_space_type>& gfvphi(
             *phi.getPtDataWGhosts());
-        gfvw1.prod(gfvphi, gfpot);
+        gfvw1.pointwiseProduct(gfvphi, gfpot);
 
         pb::GridFunc<ORBDTYPE> gf_work1(
             mygrid, ct.bcWF[0], ct.bcWF[1], ct.bcWF[2]);
@@ -193,6 +194,23 @@ void Hamiltonian<ExtendedGridOrbitals>::addHlocal2matrix(
     // hij.print(std::cout, 0, 0, 5, 5);
 }
 
+#ifdef HAVE_MAGMA
+template <>
+template <>
+void Hamiltonian<ExtendedGridOrbitals>::addHlocal2matrix(
+    ExtendedGridOrbitals& phi1, ExtendedGridOrbitals& phi2,
+    ReplicatedMatrix& hij, const bool force)
+{
+    applyLocal(phi2, force);
+
+#ifdef PRINT_OPERATIONS
+    if (onpe0) (*MPIdata::sout) << "Hamiltonian<T>::addHlocal2matrix()" << endl;
+#endif
+
+    phi1.addDotWithNcol2Matrix(*hlphi_, hij);
+}
+#endif
+
 template <class T>
 void Hamiltonian<T>::addHlocalij(
     T& phi1, T& phi2, ProjectedMatricesInterface* proj_matrices)
@@ -203,11 +221,21 @@ void Hamiltonian<T>::addHlocalij(
     if (onpe0) (*MPIdata::sout) << "Hamiltonian<T>::addHLocalij()" << endl;
 #endif
 
-    SquareLocalMatrices<MATDTYPE> slm(phi1.subdivx(), phi1.chromatic_number());
+    addHlocalij(phi1, proj_matrices);
+}
+
+template <class T>
+void Hamiltonian<T>::addHlocalij(
+    T& phi1, ProjectedMatricesInterface* proj_matrices)
+{
+    SquareLocalMatrices<MATDTYPE, MemorySpace::Host> slm(
+        phi1.subdivx(), phi1.chromatic_number());
 
     phi1.computeLocalProduct(*hlphi_, slm);
 
     proj_matrices->setLocalMatrixElementsHl(slm);
+
+    proj_matrices->consolidateH();
 }
 
 template <>
@@ -223,7 +251,8 @@ void Hamiltonian<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals& phi1,
     if (onpe0) (*MPIdata::sout) << "Hamiltonian<T>::addHLocalij()" << endl;
 #endif
 
-    SquareLocalMatrices<MATDTYPE> ss(phi1.subdivx(), phi1.chromatic_number());
+    SquareLocalMatrices<MATDTYPE, MemorySpace::Host> ss(
+        phi1.subdivx(), phi1.chromatic_number());
 
     phi1.computeLocalProduct(*hlphi_, ss);
 
@@ -249,5 +278,9 @@ template void Hamiltonian<LocGridOrbitals>::addHlocalij(LocGridOrbitals&,
 template void Hamiltonian<ExtendedGridOrbitals>::addHlocalij(
     ExtendedGridOrbitals&, ExtendedGridOrbitals&,
     ProjectedMatricesInterface* proj_matrices);
+template void Hamiltonian<LocGridOrbitals>::addHlocalij(
+    LocGridOrbitals&, ProjectedMatricesInterface* proj_matrices);
+template void Hamiltonian<ExtendedGridOrbitals>::addHlocalij(
+    ExtendedGridOrbitals&, ProjectedMatricesInterface* proj_matrices);
 template void Hamiltonian<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals&,
     LocGridOrbitals&, VariableSizeMatrix<sparserow>& mat, const bool force);

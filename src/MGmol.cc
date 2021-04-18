@@ -27,6 +27,7 @@
 #include "Electrostatic.h"
 #include "Energy.h"
 #include "EnergySpreadPenalty.h"
+#include "FDkernels.h"
 #include "FDoper.h"
 #include "FIRE.h"
 #include "Forces.h"
@@ -40,6 +41,7 @@
 #include "LocGridOrbitals.h"
 #include "LocalizationRegions.h"
 #include "MDfiles.h"
+#include "MGkernels.h"
 #include "MGmol.h"
 #include "MLWFTransform.h"
 #include "MPIdata.h"
@@ -55,6 +57,7 @@
 #include "ProjectedMatricesMehrstellen.h"
 #include "ProjectedMatricesSparse.h"
 #include "ReplicatedMatrix.h"
+#include "ReplicatedVector.h"
 #include "Rho.h"
 #include "SP2.h"
 #include "SparseDistMatrix.h"
@@ -268,12 +271,11 @@ int MGmol<OrbitalsType>::initial()
     // a limited set of options
 #ifdef HAVE_MAGMA
     bool use_replicated_matrix
-        = ((ct.OuterSolver() == OuterSolverType::ABPG)
-            && (ct.DM_solver() == DMNonLinearSolverType::Mixing)
-            && !ct.isLocMode());
+        = !std::is_same<OrbitalsType, LocGridOrbitals>::value;
 #endif
 
     if (ct.Mehrstellen())
+    {
 #ifdef HAVE_MAGMA
         if (use_replicated_matrix)
             proj_matrices_ = new ProjectedMatricesMehrstellen<ReplicatedMatrix>(
@@ -283,6 +285,7 @@ int MGmol<OrbitalsType>::initial()
             proj_matrices_ = new ProjectedMatricesMehrstellen<
                 dist_matrix::DistMatrix<DISTMATDTYPE>>(
                 ct.numst, with_spin, ct.occ_width);
+    }
     else if (ct.short_sighted)
         proj_matrices_ = new ProjectedMatricesSparse(
             ct.numst, ct.occ_width, lrs_, local_cluster_);
@@ -488,8 +491,17 @@ int MGmol<OrbitalsType>::initial()
     updateHmatrix(*current_orbitals_, *ions_);
 
     // HMVP algorithm requires that H is initialized
-    dm_strategy_ = DMStrategyFactory<OrbitalsType>::create(comm_, os_, *ions_,
-        rho_, energy_, electrostat_, this, proj_matrices_, current_orbitals_);
+#ifdef HAVE_MAGMA
+    if (use_replicated_matrix)
+        dm_strategy_
+            = DMStrategyFactory<OrbitalsType, ReplicatedMatrix>::create(comm_,
+                os_, *ions_, rho_, energy_, electrostat_, this, proj_matrices_,
+                current_orbitals_);
+    else
+#endif
+        dm_strategy_ = DMStrategyFactory<OrbitalsType,
+            dist_matrix::DistMatrix<double>>::create(comm_, os_, *ions_, rho_,
+            energy_, electrostat_, this, proj_matrices_, current_orbitals_);
 
     // theta = invB * Hij
     proj_matrices_->updateThetaAndHB();
@@ -878,6 +890,8 @@ void MGmol<OrbitalsType>::printTimers()
     pb::GridFuncInterface::printTimers(os_);
     pb::GridFuncVector<double>::printTimers(os_);
     pb::GridFuncVector<float>::printTimers(os_);
+    pb::printMGkernelTimers(os_);
+    pb::printFDkernelTimers(os_);
     pb::FDoperInterface::printTimers(os_);
     OrbitalsType::printTimers(os_);
     SinCosOps<OrbitalsType>::printTimers(os_);
@@ -931,10 +945,9 @@ void MGmol<OrbitalsType>::printTimers()
     PreconILU<pcdatatype>::printTimers(os_);
     LinearSolver::printTimers(os_);
     Table::printTimers(os_);
-    LocalMatrices<MATDTYPE>::printTimers(os_);
-    Power<LocalVector<double>, SquareLocalMatrices<double>>::printTimers(os_);
-    PowerGen<dist_matrix::DistMatrix<double>,
-        dist_matrix::DistVector<double>>::printTimers(os_);
+    LocalMatrices<MATDTYPE, MemorySpace::Host>::printTimers(os_);
+    Power<LocalVector<double, MemorySpace::Host>,
+        SquareLocalMatrices<double, MemorySpace::Host>>::printTimers(os_);
     SP2::printTimers(os_);
     if (lrs_) lrs_->printTimers(os_);
     local_cluster_->printTimers(os_);
@@ -960,17 +973,21 @@ void MGmol<OrbitalsType>::printTimers()
     setup_tm_.print(os_);
     HDFrestart::printTimers(os_);
 #ifdef HAVE_MAGMA
+    PowerGen<ReplicatedMatrix, ReplicatedVector>::printTimers(os_);
     BlockVector<ORBDTYPE, MemorySpace::Device>::printTimers(os_);
-#else
-    BlockVector<ORBDTYPE, MemorySpace::Host>::printTimers(os_);
+    DavidsonSolver<ExtendedGridOrbitals, ReplicatedMatrix>::printTimers(os_);
+    ChebyshevApproximation<ReplicatedMatrix>::printTimers(os_);
 #endif
-    OrbitalsPreconditioning<OrbitalsType>::printTimers(os_);
+    PowerGen<dist_matrix::DistMatrix<double>,
+        dist_matrix::DistVector<double>>::printTimers(os_);
+    BlockVector<ORBDTYPE, MemorySpace::Host>::printTimers(os_);
     DavidsonSolver<ExtendedGridOrbitals,
         dist_matrix::DistMatrix<DISTMATDTYPE>>::printTimers(os_);
-    MDfiles::printTimers(os_);
-    ChebyshevApproximationInterface::printTimers(os_);
     ChebyshevApproximation<dist_matrix::DistMatrix<DISTMATDTYPE>>::printTimers(
         os_);
+    OrbitalsPreconditioning<OrbitalsType>::printTimers(os_);
+    MDfiles::printTimers(os_);
+    ChebyshevApproximationInterface::printTimers(os_);
 }
 
 template <class OrbitalsType>
@@ -1217,7 +1234,8 @@ void MGmol<OrbitalsType>::computeResidualUsingHPhi(OrbitalsType& psi,
 
     proj_matrices_->updateSubMatT();
 
-    SquareLocalMatrices<MATDTYPE>& localT(proj_matrices_->getLocalT());
+    SquareLocalMatrices<MATDTYPE, MemorySpace::Host>& localT(
+        proj_matrices_->getLocalT());
 
     pb::Lap<ORBDTYPE>* lapop = hamiltonian_->lapOper();
     const int ncolors        = psi.chromatic_number();

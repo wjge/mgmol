@@ -7,12 +7,10 @@
 // This file is part of MGmol. For details, see https://github.com/llnl/mgmol.
 // Please also read this link https://github.com/llnl/mgmol/LICENSE
 
-// $Id: Lap.h,v 1.11 2009/07/16 23:36:28 jeanluc Exp $
 #ifndef PB_LAP_H
 #define PB_LAP_H
 
 #include "FDoper.h"
-#include "GridFuncVector.h"
 
 #include <string>
 
@@ -39,33 +37,18 @@ public:
         std::cerr << "ERROR: Lap::applyWithPot() not implemented" << std::endl;
         MPI_Abort(MPI_COMM_WORLD, 0);
     }
-    virtual void apply(GridFuncVector<T, memory_space_type>& A,
-        GridFuncVector<T, memory_space_type>& B)
-        = 0;
 
     std::string name() const { return name_; }
 
     virtual void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&) = 0;
-    virtual void jacobi(GridFuncVector<T, memory_space_type>&,
-        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&)
-        = 0;
-    virtual void jacobi(GridFuncVector<T, memory_space_type>&,
-        const GridFuncVector<T, memory_space_type>&,
-        GridFuncVector<T, memory_space_type>&)
-        = 0;
 
     void jacobi(GridFunc<T>&, const GridFunc<T>&, GridFunc<T>&, const double);
-    void jacobi(GridFuncVector<T, memory_space_type>&,
-        const GridFuncVector<T, memory_space_type>&, GridFunc<T>&,
-        const double);
-    void jacobi(GridFuncVector<T, memory_space_type>&,
-        const GridFuncVector<T, memory_space_type>&,
-        GridFuncVector<T, memory_space_type>&, const double);
 
     double energyES(GridFunc<T>&, GridFunc<T>&);
-    virtual double diagEl(void) const    = 0;
-    virtual double invDiagEl(void) const = 0;
-    virtual void setLowerOrderGrid(void) = 0;
+    virtual double diagEl(void) const       = 0;
+    virtual double invDiagEl(void) const    = 0;
+    virtual void setLowerOrderGrid(void)    = 0;
+    virtual double jacobiFactor(void) const = 0;
 
     ~Lap() override {}
 };

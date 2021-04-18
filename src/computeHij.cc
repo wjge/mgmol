@@ -25,6 +25,7 @@
 #include "Potentials.h"
 #include "ProjectedMatricesInterface.h"
 #include "ProjectedMatricesSparse.h"
+#include "ReplicatedMatrix.h"
 #include "SquareSubMatrix2DistMatrix.h"
 
 template <>
@@ -42,6 +43,7 @@ void MGmol<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals& orbitalsi,
     computeHij_tm_.stop();
 }
 
+template <>
 template <>
 void MGmol<LocGridOrbitals>::addHlocal2matrix(LocGridOrbitals& orbitalsi,
     LocGridOrbitals& orbitalsj, dist_matrix::DistMatrix<double>& H)
@@ -242,9 +244,7 @@ void MGmol<OrbitalsType>::computeHij(OrbitalsType& orbitals_i,
     kbpsi->computeHvnlMatrix(ions, projmatrices);
 
     // add local Hamiltonian part to phi^T*H*phi
-    addHlocalij(orbitals_i, orbitals_j, projmatrices);
-
-    projmatrices->consolidateH();
+    hamiltonian_->addHlocalij(orbitals_i, orbitals_j, projmatrices);
 }
 
 template <class OrbitalsType>
@@ -378,8 +378,9 @@ void MGmol<OrbitalsType>::computeHnlPhiAndAdd2HPhi(Ions& ions,
 }
 
 template <class OrbitalsType>
-void MGmol<OrbitalsType>::addHlocal2matrix(OrbitalsType& orbitalsi,
-    OrbitalsType& orbitalsj, dist_matrix::DistMatrix<DISTMATDTYPE>& mat)
+template <class MatrixType>
+void MGmol<OrbitalsType>::addHlocal2matrix(
+    OrbitalsType& orbitalsi, OrbitalsType& orbitalsj, MatrixType& mat)
 {
     computeHij_tm_.start();
 
@@ -387,23 +388,8 @@ void MGmol<OrbitalsType>::addHlocal2matrix(OrbitalsType& orbitalsi,
     os_ << " addHlocal2matrix()" << endl;
 #endif
 
-    // add local H to DistMatrix
+    // add local H to mat
     hamiltonian_->addHlocal2matrix(orbitalsi, orbitalsj, mat);
-
-    computeHij_tm_.stop();
-}
-
-template <class OrbitalsType>
-void MGmol<OrbitalsType>::addHlocalij(OrbitalsType& orbitalsi,
-    OrbitalsType& orbitalsj, ProjectedMatricesInterface* pmat)
-{
-    computeHij_tm_.start();
-
-#if DEBUG
-    os_ << " addHlocalij()" << endl;
-#endif
-
-    hamiltonian_->addHlocalij(orbitalsi, orbitalsj, pmat);
 
     computeHij_tm_.stop();
 }
@@ -453,14 +439,7 @@ void MGmol<OrbitalsType>::getHpsiAndTheta(Ions& ions, OrbitalsType& phi,
         kbpsi->computeHvnlMatrix(ions, proj_matrices_);
 
         // add local part of H to sh
-        SquareLocalMatrices<MATDTYPE> slh(
-            phi.subdivx(), phi.chromatic_number());
-
-        phi.computeLocalProduct(hphi, slh);
-
-        proj_matrices_->setLocalMatrixElementsHl(slh);
-
-        proj_matrices_->consolidateH();
+        hamiltonian_->addHlocalij(phi, proj_matrices_);
 
         energy_->saveVofRho();
 
@@ -478,3 +457,12 @@ void MGmol<OrbitalsType>::getHpsiAndTheta(Ions& ions, OrbitalsType& phi,
 
 template class MGmol<LocGridOrbitals>;
 template class MGmol<ExtendedGridOrbitals>;
+
+template void MGmol<ExtendedGridOrbitals>::addHlocal2matrix(
+    ExtendedGridOrbitals& orbitalsi, ExtendedGridOrbitals& orbitalsj,
+    dist_matrix::DistMatrix<double>&);
+#ifdef HAVE_MAGMA
+template void MGmol<ExtendedGridOrbitals>::addHlocal2matrix(
+    ExtendedGridOrbitals& orbitalsi, ExtendedGridOrbitals& orbitalsj,
+    ReplicatedMatrix& mat);
+#endif
